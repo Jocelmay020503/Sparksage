@@ -12,6 +12,7 @@ import {
   BookOpen,
   Shield,
   Sparkles,
+  Route,
   Wand2,
   LogOut,
 } from "lucide-react";
@@ -37,6 +38,7 @@ const NAV_ITEMS = [
   { title: "FAQs", href: "/dashboard/faqs", icon: BookOpen },
   { title: "Permissions", href: "/dashboard/permissions", icon: Shield },
   { title: "Prompts", href: "/dashboard/prompts", icon: Sparkles },
+  { title: "Channel Providers", href: "/dashboard/channel-providers", icon: Route },
 ];
 
 export function AppSidebar() {

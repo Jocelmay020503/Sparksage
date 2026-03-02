@@ -113,6 +113,15 @@ async def init_db():
         );
         CREATE INDEX IF NOT EXISTS idx_channel_prompts_guild ON channel_prompts(guild_id);
 
+        CREATE TABLE IF NOT EXISTS channel_providers (
+            channel_id   TEXT PRIMARY KEY,
+            guild_id     TEXT NOT NULL,
+            provider     TEXT NOT NULL,
+            created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_channel_providers_guild ON channel_providers(guild_id);
+
         INSERT OR IGNORE INTO wizard_state (id) VALUES (1);
         """
     )
@@ -627,6 +636,60 @@ async def get_all_channel_prompts(guild_id: str | None = None) -> list[dict]:
     else:
         cursor = await db.execute(
             "SELECT * FROM channel_prompts ORDER BY created_at DESC"
+        )
+    rows = await cursor.fetchall()
+    return [dict(row) for row in rows]
+
+
+# --- Channel Provider helpers ---
+
+
+async def get_channel_provider(channel_id: str) -> str | None:
+    """Get provider override for a specific channel."""
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT provider FROM channel_providers WHERE channel_id = ?",
+        (channel_id,),
+    )
+    row = await cursor.fetchone()
+    return row["provider"] if row else None
+
+
+async def set_channel_provider(channel_id: str, guild_id: str, provider: str):
+    """Set or update provider override for a channel."""
+    db = await get_db()
+    await db.execute(
+        """INSERT INTO channel_providers (channel_id, guild_id, provider, updated_at)
+           VALUES (?, ?, ?, datetime('now'))
+           ON CONFLICT(channel_id) DO UPDATE SET
+               provider = excluded.provider,
+               updated_at = datetime('now')""",
+        (channel_id, guild_id, provider),
+    )
+    await db.commit()
+
+
+async def remove_channel_provider(channel_id: str):
+    """Remove provider override for a channel."""
+    db = await get_db()
+    await db.execute(
+        "DELETE FROM channel_providers WHERE channel_id = ?",
+        (channel_id,),
+    )
+    await db.commit()
+
+
+async def get_all_channel_providers(guild_id: str | None = None) -> list[dict]:
+    """Get all channel provider overrides, optionally filtered by guild."""
+    db = await get_db()
+    if guild_id:
+        cursor = await db.execute(
+            "SELECT * FROM channel_providers WHERE guild_id = ? ORDER BY created_at DESC",
+            (guild_id,),
+        )
+    else:
+        cursor = await db.execute(
+            "SELECT * FROM channel_providers ORDER BY created_at DESC"
         )
     rows = await cursor.fetchall()
     return [dict(row) for row in rows]

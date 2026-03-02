@@ -39,8 +39,15 @@ async def ask_ai(channel_id: int, user_name: str, message: str) -> tuple[str, st
     channel_prompt = await database.get_channel_prompt(str(channel_id))
     system_prompt = channel_prompt if channel_prompt else config.SYSTEM_PROMPT
 
+    # Check for channel-specific provider override
+    channel_provider = await database.get_channel_provider(str(channel_id))
+
     try:
-        response, provider_name = providers.chat(history, system_prompt)
+        response, provider_name = providers.chat(
+            history,
+            system_prompt,
+            preferred_provider=channel_provider,
+        )
         # Store assistant response in DB
         await database.add_message(str(channel_id), "assistant", response, provider=provider_name)
         return response, provider_name

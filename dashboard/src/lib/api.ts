@@ -82,6 +82,14 @@ export interface ChannelPromptItem {
   updated_at: string;
 }
 
+export interface ChannelProviderItem {
+  channel_id: string;
+  guild_id: string;
+  provider: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface BotStatus {
   online: boolean;
   latency: number | null;
@@ -266,6 +274,43 @@ export const api = {
   deleteChannelPrompt: (token: string, channelId: string) =>
     apiFetch<{ status: string; channel_id: string }>(
       `/api/channel-prompts/${encodeURIComponent(channelId)}`,
+      {
+        method: "DELETE",
+        token,
+      }
+    ),
+
+  // Channel Providers
+  getChannelProviders: (token: string, guildId?: string) => {
+    const suffix = guildId
+      ? `?guild_id=${encodeURIComponent(guildId)}`
+      : "";
+    return apiFetch<{ channel_providers: ChannelProviderItem[] }>(`/api/channel-providers${suffix}`, { token });
+  },
+
+  getChannelProvider: (token: string, channelId: string) =>
+    apiFetch<{ channel_id: string; provider: string }>(
+      `/api/channel-providers/${encodeURIComponent(channelId)}`,
+      { token }
+    ),
+
+  createChannelProvider: (
+    token: string,
+    payload: {
+      channel_id: string;
+      guild_id: string;
+      provider: string;
+    }
+  ) =>
+    apiFetch<{ status: string; channel_id: string; provider: string }>("/api/channel-providers", {
+      method: "POST",
+      body: JSON.stringify(payload),
+      token,
+    }),
+
+  deleteChannelProvider: (token: string, channelId: string) =>
+    apiFetch<{ status: string; channel_id: string }>(
+      `/api/channel-providers/${encodeURIComponent(channelId)}`,
       {
         method: "DELETE",
         token,

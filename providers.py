@@ -86,7 +86,7 @@ def test_provider(name: str) -> dict:
         return {"success": False, "latency_ms": latency, "error": str(e)}
 
 
-def chat(messages: list[dict], system_prompt: str) -> tuple[str, str]:
+def chat(messages: list[dict], system_prompt: str, preferred_provider: str | None = None) -> tuple[str, str]:
     """Send messages to AI and return (response_text, provider_name).
 
     Tries the primary provider first, then falls back through free providers.
@@ -94,7 +94,11 @@ def chat(messages: list[dict], system_prompt: str) -> tuple[str, str]:
     """
     errors = []
 
-    for provider_name in FALLBACK_ORDER:
+    fallback_order = FALLBACK_ORDER
+    if preferred_provider and preferred_provider in config.PROVIDERS:
+        fallback_order = [preferred_provider] + [p for p in FALLBACK_ORDER if p != preferred_provider]
+
+    for provider_name in fallback_order:
         client = _clients.get(provider_name)
         if not client:
             continue
