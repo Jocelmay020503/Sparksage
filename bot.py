@@ -81,7 +81,9 @@ async def on_message(message: discord.Message):
 
         async with message.channel.typing():
             response, provider_name = await ask_ai(
-                message.channel.id, message.author.display_name, clean_content
+                message.channel.id, message.author.display_name, clean_content,
+                guild_id=str(message.guild.id) if message.guild else None,
+                user_id=str(message.author.id)
             )
 
         # Split long responses (Discord 2000 char limit)

@@ -92,7 +92,9 @@ Provide detailed feedback on bugs, style, performance, and security."""
         # Get AI review response using the code review system prompt
         try:
             response, provider_name = await ask_ai(
-                interaction.channel_id, interaction.user.display_name, review_request
+                interaction.channel_id, interaction.user.display_name, review_request,
+                guild_id=str(interaction.guild_id) if interaction.guild_id else None,
+                user_id=str(interaction.user.id)
             )
             # Update the system prompt context for this specific review
             # Note: ask_ai uses config.SYSTEM_PROMPT; for specialized prompts,
