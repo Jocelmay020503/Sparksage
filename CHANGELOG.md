@@ -1,5 +1,49 @@
 # Changelog
 
+## [0.6.2] - 2026-03-04
+
+### Added - Phase 5.4: Cost Tracking and Expense Monitoring
+
+- **Cost Calculator Utility** (`utils/cost_calculator.py`):
+  - `ProviderPricing` dataclass with input/output token rates per 1M tokens
+  - Pricing data for Gemini, Groq, OpenRouter, Anthropic, OpenAI
+  - `calculate_cost()` function returning USD cost from token counts
+  - `format_cost()` for multiple display scales (USD, millidollars, microdollars)
+  - `get_all_provider_costs()` and `get_provider_pricing()` helpers
+
+- **Database Cost Tracking** (`db.py`):
+  - `cost_usage` table tracking API calls with provider, tokens, cost, guild/user IDs
+  - Indexed queries on provider, guild_id, user_id, created_at
+  - `log_cost_usage()` — record API cost event
+  - `get_cost_summary()` — aggregate total/token/query metrics with provider breakdown
+  - `get_cost_by_provider()` — cost metrics per provider
+  - `get_top_expensive_users()` and `get_top_expensive_guilds()` — cost rankings
+  - `get_cost_history()` — daily aggregated cost trends
+
+- **REST API Endpoints** (`api/routes/costs.py`):
+  - `GET /api/costs/summary?days=30` — overall cost metrics with provider breakdown
+  - `GET /api/costs/by-provider?days=30` — cost breakdown by provider
+  - `GET /api/costs/top-users?days=30&limit=10` — top spending users
+  - `GET /api/costs/top-guilds?days=30&limit=10` — top spending guilds
+  - `GET /api/costs/history?days=30` — daily cost history for trending
+
+- **Cost Tracking Dashboard** (`dashboard/src/app/dashboard/costs/page.tsx`):
+  - Summary cards: Total Cost, Input Tokens, Output Tokens, Queries, Avg Cost/Query
+  - Daily cost line chart with time range selector (7/14/30/60/90 days)
+  - Provider cost pie chart showing distribution
+  - Provider breakdown table with cost, queries, input/output tokens
+  - Top expensive users and guilds rankings with token usage
+  - Information card explaining cost system
+  - Custom cost formatting for USD display
+
+- **API Integration** (`dashboard/src/lib/api.ts`):
+  - TypeScript types: `CostSummary`, `CostByProvider`, `CostHistoryItem`, `TopExpensiveItem`
+  - API methods: `getCostSummary()`, `getCostByProvider()`, `getCostHistory()`
+  - `getTopExpensiveUsers()` and `getTopExpensiveGuilds()` methods
+
+- **Sidebar Navigation**:
+  - Added `Costs` menu item with DollarSign icon
+
 ## [0.5.4] - 2026-03-03
 
 ### Added - Phase 4.5: Per-Channel Provider Override
