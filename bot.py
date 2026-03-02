@@ -39,7 +39,8 @@ async def on_ready():
     try:
         await bot.load_extension("cogs.general")
         await bot.load_extension("cogs.summarize")
-        print("Loaded cogs: general, summarize")
+        await bot.load_extension("cogs.code_review")
+        print("Loaded cogs: general, summarize, code_review")
     except Exception as e:
         print(f"Failed to load cogs: {e}")
 
