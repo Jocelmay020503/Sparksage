@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.5.4] - 2026-03-03
+
+### Added - Phase 4.5: Per-Channel Provider Override
+
+- **Channel Provider Database Table** (`channel_providers`) in `db.py`:
+  - Stores per-channel provider overrides with guild mapping
+  - Includes created/updated timestamps and guild index
+- **Channel Provider DB Helpers** in `db.py`:
+  - `get_channel_provider()` — get provider override for a channel
+  - `set_channel_provider()` — create/update channel provider override
+  - `remove_channel_provider()` — remove override and use global provider
+  - `get_all_channel_providers()` — list channel-provider mappings
+- **Provider Override Runtime Support**:
+  - `providers.chat()` now accepts optional `preferred_provider`
+  - `utils.ask_ai()` checks channel provider override before global provider fallback chain
+- **Discord Channel Provider Command** (`cogs/channel_provider.py`):
+  - Added `/channel-provider` command with actions: `set`, `reset`, `show`
+  - Supports provider choices: Gemini, Groq, OpenRouter, Anthropic, OpenAI
+  - Uses `Manage Channels` default permission
+- **API Endpoints** (`api/routes/channel_providers.py`):
+  - `GET /api/channel-providers` and `GET /api/channel-providers/{channel_id}`
+  - `POST /api/channel-providers`, `DELETE /api/channel-providers/{channel_id}`
+  - Router registered in `api/main.py`
+- **Dashboard Channel Provider Management**:
+  - New page: `/dashboard/channel-providers`
+  - Create/remove channel provider overrides from UI
+  - Added API client methods/types in `dashboard/src/lib/api.ts`
+  - Added `Channel Providers` item in sidebar navigation
+
 ## [0.5.3] - 2026-03-03
 
 ### Added - Phase 4.4: Custom System Prompts Per Channel
