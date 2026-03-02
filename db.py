@@ -66,6 +66,14 @@ async def init_db():
         );
         CREATE INDEX IF NOT EXISTS idx_faqs_guild ON faqs(guild_id);
 
+        CREATE TABLE IF NOT EXISTS command_permissions (
+            command_name TEXT NOT NULL,
+            guild_id     TEXT NOT NULL,
+            role_id      TEXT NOT NULL,
+            PRIMARY KEY (command_name, guild_id, role_id)
+        );
+        CREATE INDEX IF NOT EXISTS idx_cmd_perms_guild ON command_permissions(guild_id);
+
         INSERT OR IGNORE INTO wizard_state (id) VALUES (1);
         """
     )
@@ -272,6 +280,73 @@ async def increment_faq_usage(faq_id: int):
         (faq_id,),
     )
     await db.commit()
+
+
+# --- Permission helpers ---
+
+
+async def add_permission(command_name: str, guild_id: str, role_id: str):
+    """Add a role permission for a command."""
+    db = await get_db()
+    await db.execute(
+        "INSERT OR IGNORE INTO command_permissions (command_name, guild_id, role_id) VALUES (?, ?, ?)",
+        (command_name, guild_id, role_id),
+    )
+    await db.commit()
+
+
+async def delete_permission(command_name: str, guild_id: str, role_id: str) -> bool:
+    """Delete a role permission for a command."""
+    db = await get_db()
+    cursor = await db.execute(
+        "DELETE FROM command_permissions WHERE command_name = ? AND guild_id = ? AND role_id = ?",
+        (command_name, guild_id, role_id),
+    )
+    await db.commit()
+    return cursor.rowcount > 0
+
+
+async def list_permissions(guild_id: str | None = None, command_name: str | None = None) -> list[dict]:
+    """List command permissions, optionally filtered by guild or command."""
+    db = await get_db()
+    query = "SELECT command_name, guild_id, role_id FROM command_permissions WHERE 1=1"
+    params = []
+    
+    if guild_id:
+        query += " AND guild_id = ?"
+        params.append(guild_id)
+    if command_name:
+        query += " AND command_name = ?"
+        params.append(command_name)
+    
+    query += " ORDER BY command_name, role_id"
+    cursor = await db.execute(query, params)
+    rows = await cursor.fetchall()
+    return [dict(row) for row in rows]
+
+
+async def check_permission(command_name: str, guild_id: str, user_role_ids: list[str]) -> bool:
+    """Check if a user has permission to use a command. Returns True if no restrictions exist or user has required role."""
+    db = await get_db()
+    # First check if any permissions exist for this command in this guild
+    cursor = await db.execute(
+        "SELECT COUNT(*) as count FROM command_permissions WHERE command_name = ? AND guild_id = ?",
+        (command_name, guild_id),
+    )
+    row = await cursor.fetchone()
+    
+    # If no permissions are set, command is unrestricted
+    if row["count"] == 0:
+        return True
+    
+    # Check if user has any of the required roles
+    placeholders = ",".join("?" * len(user_role_ids))
+    cursor = await db.execute(
+        f"SELECT COUNT(*) as count FROM command_permissions WHERE command_name = ? AND guild_id = ? AND role_id IN ({placeholders})",
+        [command_name, guild_id] + user_role_ids,
+    )
+    row = await cursor.fetchone()
+    return row["count"] > 0
 
 
 # --- Wizard helpers ---

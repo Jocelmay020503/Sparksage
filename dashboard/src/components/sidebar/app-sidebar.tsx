@@ -10,6 +10,7 @@ import {
   Settings,
   MessageSquare,
   BookOpen,
+  Shield,
   Wand2,
   LogOut,
 } from "lucide-react";
@@ -33,6 +34,7 @@ const NAV_ITEMS = [
   { title: "Settings", href: "/dashboard/settings", icon: Settings },
   { title: "Conversations", href: "/dashboard/conversations", icon: MessageSquare },
   { title: "FAQs", href: "/dashboard/faqs", icon: BookOpen },
+  { title: "Permissions", href: "/dashboard/permissions", icon: Shield },
 ];
 
 export function AppSidebar() {
