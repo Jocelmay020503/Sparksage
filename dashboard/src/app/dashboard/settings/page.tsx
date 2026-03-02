@@ -25,6 +25,9 @@ const settingsSchema = z.object({
   WELCOME_ENABLED: z.enum(["true", "false"]),
   WELCOME_CHANNEL_ID: z.string(),
   WELCOME_MESSAGE: z.string().min(1),
+  DIGEST_ENABLED: z.enum(["true", "false"]),
+  DIGEST_CHANNEL_ID: z.string(),
+  DIGEST_TIME: z.string(),
   GEMINI_API_KEY: z.string(),
   GROQ_API_KEY: z.string(),
   OPENROUTER_API_KEY: z.string(),
@@ -43,6 +46,9 @@ const DEFAULTS: SettingsForm = {
   WELCOME_ENABLED: "false",
   WELCOME_CHANNEL_ID: "",
   WELCOME_MESSAGE: "Welcome {user} to **{server}**! 👋",
+  DIGEST_ENABLED: "false",
+  DIGEST_CHANNEL_ID: "",
+  DIGEST_TIME: "09:00",
   GEMINI_API_KEY: "",
   GROQ_API_KEY: "",
   OPENROUTER_API_KEY: "",
@@ -111,6 +117,7 @@ export default function SettingsPage() {
   const maxTokens = form.watch("MAX_TOKENS");
   const systemPrompt = form.watch("SYSTEM_PROMPT");
   const welcomeEnabled = form.watch("WELCOME_ENABLED");
+  const digestEnabled = form.watch("DIGEST_ENABLED");
 
   if (loading) {
     return (
@@ -253,6 +260,67 @@ export default function SettingsPage() {
               />
               <p className="text-xs text-muted-foreground">
                 Supports placeholders: {"{user}"}, {"{server}"}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Daily Digest */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Daily Digest</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-3">
+              <Label>Daily Digest Enabled</Label>
+              <RadioGroup
+                value={digestEnabled}
+                onValueChange={(value) =>
+                  form.setValue("DIGEST_ENABLED", value as "true" | "false")
+                }
+                className="grid grid-cols-2 gap-3"
+              >
+                <div className="flex items-center gap-2 rounded-md border p-2">
+                  <RadioGroupItem value="true" id="digest-enabled-true" />
+                  <Label htmlFor="digest-enabled-true" className="cursor-pointer">
+                    Enabled
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2 rounded-md border p-2">
+                  <RadioGroupItem value="false" id="digest-enabled-false" />
+                  <Label htmlFor="digest-enabled-false" className="cursor-pointer">
+                    Disabled
+                  </Label>
+                </div>
+              </RadioGroup>
+              <p className="text-xs text-muted-foreground">
+                Automatically summarize daily server activity and post to a designated channel
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="digest-channel">Digest Channel ID</Label>
+              <Input
+                id="digest-channel"
+                placeholder="123456789012345678"
+                {...form.register("DIGEST_CHANNEL_ID")}
+              />
+              <p className="text-xs text-muted-foreground">
+                Channel where the daily digest will be posted
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="digest-time">Digest Time (UTC)</Label>
+              <Input
+                id="digest-time"
+                type="time"
+                placeholder="09:00"
+                {...form.register("DIGEST_TIME")}
+                className="w-40"
+              />
+              <p className="text-xs text-muted-foreground">
+                Time of day to post the digest (format: HH:MM in UTC timezone)
               </p>
             </div>
           </CardContent>
