@@ -1,5 +1,76 @@
 # Changelog
 
+## [0.6.1] - 2026-03-02
+
+### Added - Phase 5.3: Plugin System for Community-Contributed Cogs
+
+- **Plugin Loader Utility** (`utils/plugin_loader.py`):
+  - `PluginLoader` class for discovering and dynamically loading plugins
+  - `PluginManifest` class for parsing plugin.json metadata
+  - `Plugin` class representing a loaded plugin instance
+  - Methods: `discover_plugins()`, `load_plugin()`, `unload_plugin()`, `reload_plugin()`
+  - Support for plugin validation and error handling
+  - Singleton accessor: `get_plugin_loader()`
+- **Plugin Manifest System** (plugin.json):
+  - Plugin metadata: name, version, author, description, cog_class
+  - Optional fields: discord_py_version, dependencies, commands, permissions
+  - Validation to ensure required fields exist
+- **Plugin Database** (`db.py`):
+  - New `plugins` table tracking installed plugins
+  - Fields: name, version, author, description, enabled, installed_at, updated_at
+  - Helper functions: `upsert_plugin()`, `set_plugin_enabled()`, `delete_plugin()`, `get_plugin()`, `list_plugins()`, `list_enabled_plugins()`
+- **Plugin Management Discord Commands** (`cogs/plugin_manager.py`):
+  - `/plugin-list` — Show available, installed, and enabled plugins with status badges
+  - `/plugin-install name:{name}` — Install plugin from manifest
+  - `/plugin-enable name:{name}` — Enable plugin (requires bot restart to load)
+  - `/plugin-disable name:{name}` — Disable plugin (requires bot restart to unload)
+  - `/plugin-uninstall name:{name}` — Uninstall plugin metadata
+  - Admin-only commands with `manage_guild` permission
+- **Plugin API Endpoints** (`api/routes/plugins.py`, JWT-protected):
+  - `GET /api/plugins` — List all plugins with install and enable state
+  - `POST /api/plugins/install` — Install plugin metadata
+  - `POST /api/plugins/enable` — Enable installed plugin
+  - `POST /api/plugins/disable` — Disable installed plugin
+  - `DELETE /api/plugins/{name}` — Uninstall and remove plugin
+- **Bot Integration** (`bot.py`):
+  - Load PluginManager cog at startup (`cogs.plugin_manager`)
+  - Auto-load enabled plugins from database on bot ready event
+  - Dynamic extension loading from `plugins/{name}/cog.py`
+  - Graceful error handling for plugin load failures
+- **Plugin Management Dashboard** (`dashboard/src/app/dashboard/plugins/page.tsx`):
+  - Display available plugins with install status
+  - Show installed plugins with enable/disable toggle
+  - Show enabled plugins with disable and uninstall buttons
+  - Plugin status badges: Available, Installed, Enabled
+  - Action buttons with loading states and confirmations
+  - Refresh button to reload plugin list
+  - Information card explaining plugin lifecycle
+  - TypeScript integration with error toast notifications
+- **API Client Methods** (`dashboard/src/lib/api.ts`):
+  - `PluginItem` interface with metadata and state fields
+  - `PluginsResponse` interface for API response
+  - `getPlugins()` — fetch all plugins
+  - `installPlugin()` — install plugin
+  - `enablePlugin()` — enable plugin
+  - `disablePlugin()` — disable plugin
+  - `uninstallPlugin()` — uninstall plugin
+- **Plugin Directory Structure**:
+  - New `plugins/` root directory for community contributions
+  - `plugins/README.md` with developer guide and plugin structure template
+  - `plugins/__init__.py` to make directory a Python package
+  - Standardized structure for each plugin: `plugin_name/__init__.py`, `cog.py`, `plugin.json`
+- **Sidebar Navigation**:
+  - Added Plugins menu item to dashboard sidebar with Puzzle icon
+
+Plugin System Design:
+- Plugin discovery scans `plugins/` directory for manifest files
+- Manifest validation ensures plugin.json has required fields
+- Dynamic loading allows community contributions without core codebase changes
+- Enable/disable state tracked in database for persistence across restarts
+- REST API enables remote plugin management from dashboard
+- Built-in commands provide CLI interface for Discord admins
+- Automatic error handling prevents broken plugins from crashing bot
+
 ## [0.5.4] - 2026-03-03
 
 ### Added - Phase 4.5: Per-Channel Provider Override
