@@ -54,6 +54,18 @@ async def init_db():
             data         TEXT    NOT NULL DEFAULT '{}'
         );
 
+        CREATE TABLE IF NOT EXISTS faqs (
+            id             INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id       TEXT    NOT NULL,
+            question       TEXT    NOT NULL,
+            answer         TEXT    NOT NULL,
+            match_keywords TEXT    NOT NULL,
+            times_used     INTEGER NOT NULL DEFAULT 0,
+            created_by     TEXT,
+            created_at     TEXT    NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_faqs_guild ON faqs(guild_id);
+
         INSERT OR IGNORE INTO wizard_state (id) VALUES (1);
         """
     )
@@ -185,6 +197,78 @@ async def list_channels() -> list[dict]:
     )
     rows = await cursor.fetchall()
     return [dict(row) for row in rows]
+
+
+# --- FAQ helpers ---
+
+
+async def add_faq(
+    guild_id: str,
+    question: str,
+    answer: str,
+    match_keywords: str,
+    created_by: str | None = None,
+) -> int:
+    """Create an FAQ entry and return its ID."""
+    db = await get_db()
+    cursor = await db.execute(
+        """
+        INSERT INTO faqs (guild_id, question, answer, match_keywords, created_by)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (guild_id, question, answer, match_keywords, created_by),
+    )
+    await db.commit()
+    return int(cursor.lastrowid)
+
+
+async def list_faqs(guild_id: str | None = None) -> list[dict]:
+    """List FAQ entries, optionally filtered by guild."""
+    db = await get_db()
+    if guild_id:
+        cursor = await db.execute(
+            """
+            SELECT id, guild_id, question, answer, match_keywords, times_used, created_by, created_at
+            FROM faqs
+            WHERE guild_id = ?
+            ORDER BY id DESC
+            """,
+            (guild_id,),
+        )
+    else:
+        cursor = await db.execute(
+            """
+            SELECT id, guild_id, question, answer, match_keywords, times_used, created_by, created_at
+            FROM faqs
+            ORDER BY id DESC
+            """
+        )
+    rows = await cursor.fetchall()
+    return [dict(row) for row in rows]
+
+
+async def delete_faq(faq_id: int, guild_id: str | None = None) -> bool:
+    """Delete an FAQ by ID, optionally scoped to a guild."""
+    db = await get_db()
+    if guild_id:
+        cursor = await db.execute(
+            "DELETE FROM faqs WHERE id = ? AND guild_id = ?",
+            (faq_id, guild_id),
+        )
+    else:
+        cursor = await db.execute("DELETE FROM faqs WHERE id = ?", (faq_id,))
+    await db.commit()
+    return cursor.rowcount > 0
+
+
+async def increment_faq_usage(faq_id: int):
+    """Increment times_used for an FAQ."""
+    db = await get_db()
+    await db.execute(
+        "UPDATE faqs SET times_used = times_used + 1 WHERE id = ?",
+        (faq_id,),
+    )
+    await db.commit()
 
 
 # --- Wizard helpers ---
