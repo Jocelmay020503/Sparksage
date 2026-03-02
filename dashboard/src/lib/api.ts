@@ -68,6 +68,12 @@ export interface FAQItem {
   created_at: string;
 }
 
+export interface PermissionItem {
+  command_name: string;
+  guild_id: string;
+  role_id: string;
+}
+
 export interface BotStatus {
   online: boolean;
   latency: number | null;
@@ -174,6 +180,38 @@ export const api = {
       token,
     });
   },
+
+  // Permissions
+  getPermissions: (token: string, guildId?: string, commandName?: string) => {
+    const params = new URLSearchParams();
+    if (guildId) params.set("guild_id", guildId);
+    if (commandName) params.set("command_name", commandName);
+    const suffix = params.toString() ? `?${params.toString()}` : "";
+    return apiFetch<{ permissions: PermissionItem[] }>(`/api/permissions${suffix}`, { token });
+  },
+
+  createPermission: (
+    token: string,
+    payload: {
+      command_name: string;
+      guild_id: string;
+      role_id: string;
+    }
+  ) =>
+    apiFetch<{ status: string }>("/api/permissions", {
+      method: "POST",
+      body: JSON.stringify(payload),
+      token,
+    }),
+
+  deletePermission: (token: string, commandName: string, guildId: string, roleId: string) =>
+    apiFetch<{ status: string }>(
+      `/api/permissions?command_name=${encodeURIComponent(commandName)}&guild_id=${encodeURIComponent(guildId)}&role_id=${encodeURIComponent(roleId)}`,
+      {
+        method: "DELETE",
+        token,
+      }
+    ),
 
   // Wizard
   getWizardStatus: (token: string) =>

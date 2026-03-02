@@ -42,3 +42,27 @@ async def ask_ai(channel_id: int, user_name: str, message: str) -> tuple[str, st
         return response, provider_name
     except RuntimeError as e:
         return f"Sorry, all AI providers failed:\n{e}", "none"
+
+
+async def check_command_permission(interaction, command_name: str) -> bool:
+    """Check if a user has permission to use a command based on roles.
+    
+    Args:
+        interaction: Discord interaction object
+        command_name: Name of the command to check
+        
+    Returns:
+        True if user has permission, False otherwise
+    """
+    if not interaction.guild:
+        # DMs are always allowed
+        return True
+    
+    guild_id = str(interaction.guild_id)
+    user_role_ids = [str(role.id) for role in interaction.user.roles]
+    
+    # Admins always have access
+    if interaction.user.guild_permissions.administrator:
+        return True
+    
+    return await database.check_permission(command_name, guild_id, user_role_ids)

@@ -1,5 +1,46 @@
 # Changelog
 
+## [0.4.4] - 2026-03-02
+
+### Added - Phase 3.5: Role-Based Access Control for Commands
+
+- **Permissions Database Schema** (`command_permissions` table) with composite primary key on `(command_name, guild_id, role_id)` and guild-level indexing
+- **Permission Helper Functions** in `db.py`:
+  - `add_permission()` — add role requirement for a command
+  - `delete_permission()` — remove role restriction
+  - `list_permissions()` — list permissions with optional guild/command filtering
+  - `check_permission()` — validate user permission based on roles
+- **Permissions Cog** (`cogs/permissions.py`) with slash commands:
+  - `/permissions-set <command> <role>` — restrict command to role
+  - `/permissions-remove <command> <role>` — lift restriction
+  - `/permissions-list` — show all restrictions for the server
+- **Permission Enforcement** in command cogs:
+  - `check_command_permission()` helper function in `utils/__init__.py`
+  - Permission checks added to `/ask`, `/clear`, `/summarize`, `/review` commands
+  - Administrators always bypass restrictions
+- **Permissions API Endpoints**:
+  - `GET /api/permissions` — list permissions with optional filters
+  - `POST /api/permissions` — create permission rule
+  - `DELETE /api/permissions` — remove permission rule
+- **Dashboard Permissions Page** at `/dashboard/permissions` for managing command access control with grouped display by command
+
+### Changed - Phase 3.5
+
+- **`bot.py`** — loads `cogs.permissions` during startup
+- **`cogs/general.py`, `cogs/summarize.py`, `cogs/code_review.py`** — add permission checks to commands
+- **`api/main.py`** — registers `permissions` router under `/api/permissions`
+- **`dashboard/src/lib/api.ts`** — adds `PermissionItem` interface and CRUD methods
+- **`dashboard/src/components/sidebar/app-sidebar.tsx`** — adds Permissions navigation item with Shield icon
+
+### Acceptance Criteria ✓ (Phase 3.5)
+
+- ✓ Server admins can restrict any command to specific roles via Discord and dashboard
+- ✓ Unrestricted commands remain available to everyone
+- ✓ Permission changes take effect immediately without restart
+- ✓ Administrators bypass all restrictions
+
+---
+
 ## [0.4.3] - 2026-03-02
 
 ### Added - Phase 3.4: New Member Onboarding Flow
