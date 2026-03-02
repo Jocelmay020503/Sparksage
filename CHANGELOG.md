@@ -1,5 +1,49 @@
 # Changelog
 
+## [0.6.0] - 2026-03-02
+
+### Added - Phase 5.1: Analytics and Usage Tracking
+
+- **Analytics Database Table** (`analytics`) in `db.py`:
+  - Comprehensive event tracking: event_type, guild_id, channel_id, user_id, provider, tokens_used, latency_ms, input_tokens, output_tokens
+  - Indexed on: guild_id, channel_id, user_id, provider, created_at, and event_type for efficient queries
+- **Analytics DB Helpers** in `db.py`:
+  - `add_analytics_event()` — record analytics events with full context
+  - `get_analytics_summary()` — aggregated stats (total events, by type, by provider, tokens, latency)
+  - `get_analytics_history()` — time-series data with day-level aggregation
+  - `get_top_channels()` — ranking of most active channels
+  - `get_top_users()` — ranking of most active users
+- **Runtime Analytics Instrumentation**:
+  - `providers.chat()` enhanced to return (response, provider_name, latency_ms)
+  - `utils.ask_ai()` automatically logs all AI interactions with guild_id, channel_id, user_id
+  - All bot commands updated to pass analytics context: `/ask`, `/review`, `/summarize`, mentions
+- **API Analytics Endpoints** (`api/routes/analytics.py`):
+  - `GET /api/analytics/summary?days=N` — aggregated metrics for past N days
+  - `GET /api/analytics/history?days=N&event_type=...` — time-series history with optional filtering
+  - `GET /api/analytics/top-channels?limit=10` — most active channels by event count
+  - `GET /api/analytics/top-users?limit=10` — most active users by event count
+  - All endpoints require JWT authentication
+- **Analytics API Client** (`dashboard/src/lib/api.ts`):
+  - `api.getAnalyticsSummary()` — fetch summary with date range
+  - `api.getAnalyticsHistory()` — fetch time-series data
+  - `api.getTopChannels()` — fetch top channels ranking
+  - `api.getTopUsers()` — fetch top users ranking
+  - TypeScript types: `AnalyticsSummary`, `AnalyticsHistoryItem`, `TopChannelItem`, `TopUserItem`
+- **Interactive Analytics Dashboard** (`/dashboard/analytics`):
+  - Summary cards: Total Events, Total Tokens, Avg Latency, Providers Used
+  - Time range selector: Last 7/14/30/60/90 days
+  - **Charts (using Recharts)**:
+    - Daily Activity line chart (events per day)
+    - Provider Usage pie chart (distribution by AI provider)
+    - Event Types bar chart (command vs mention vs FAQ vs moderation)
+    - Response Latency Trend line chart (latency over time)
+  - **Activity Rankings**:
+    - Top 5 Channels by event count with token usage
+    - Top 5 Users by event count with token usage
+- **Dashboard Integration**:
+  - Added `Analytics` item to sidebar navigation with BarChart3 icon
+  - Recharts library installed for data visualization (v3.7.0)
+
 ## [0.5.4] - 2026-03-03
 
 ### Added - Phase 4.5: Per-Channel Provider Override
