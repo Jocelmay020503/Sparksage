@@ -14,6 +14,7 @@ import {
   Sparkles,
   Route,
   Wand2,
+  DollarSign,
   LogOut,
 } from "lucide-react";
 import {
@@ -39,6 +40,7 @@ const NAV_ITEMS = [
   { title: "Permissions", href: "/dashboard/permissions", icon: Shield },
   { title: "Prompts", href: "/dashboard/prompts", icon: Sparkles },
   { title: "Channel Providers", href: "/dashboard/channel-providers", icon: Route },
+  { title: "Costs", href: "/dashboard/costs", icon: DollarSign },
 ];
 
 export function AppSidebar() {

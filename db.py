@@ -122,6 +122,22 @@ async def init_db():
         );
         CREATE INDEX IF NOT EXISTS idx_channel_providers_guild ON channel_providers(guild_id);
 
+        CREATE TABLE IF NOT EXISTS cost_usage (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            provider      TEXT NOT NULL,
+            input_tokens  INTEGER NOT NULL DEFAULT 0,
+            output_tokens INTEGER NOT NULL DEFAULT 0,
+            total_tokens  INTEGER NOT NULL DEFAULT 0,
+            cost_usd      REAL NOT NULL DEFAULT 0.0,
+            guild_id      TEXT NOT NULL,
+            user_id       TEXT NOT NULL,
+            created_at    TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_cost_provider ON cost_usage(provider);
+        CREATE INDEX IF NOT EXISTS idx_cost_guild ON cost_usage(guild_id);
+        CREATE INDEX IF NOT EXISTS idx_cost_user ON cost_usage(user_id);
+        CREATE INDEX IF NOT EXISTS idx_cost_created ON cost_usage(created_at);
+
         INSERT OR IGNORE INTO wizard_state (id) VALUES (1);
         """
     )
@@ -693,6 +709,169 @@ async def get_all_channel_providers(guild_id: str | None = None) -> list[dict]:
         )
     rows = await cursor.fetchall()
     return [dict(row) for row in rows]
+
+
+# --- Cost tracking helpers ---
+
+
+async def log_cost_usage(
+    provider: str,
+    input_tokens: int,
+    output_tokens: int,
+    total_tokens: int,
+    cost_usd: float,
+    guild_id: str,
+    user_id: str,
+):
+    """Log API cost usage."""
+    db = await get_db()
+    await db.execute(
+        """INSERT INTO cost_usage (provider, input_tokens, output_tokens, total_tokens, cost_usd, guild_id, user_id)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (provider, input_tokens, output_tokens, total_tokens, cost_usd, guild_id, user_id),
+    )
+    await db.commit()
+
+
+async def get_cost_summary(days: int = 30) -> dict:
+    """Get cost summary for the past N days."""
+    db = await get_db()
+    
+    # Get total cost and tokens
+    cursor = await db.execute(
+        """SELECT SUM(cost_usd) as total_cost, SUM(input_tokens) as input_tokens,
+                  SUM(output_tokens) as output_tokens, COUNT(*) as query_count
+           FROM cost_usage
+           WHERE created_at > datetime('now', ? || ' days')""",
+        (f"-{days}",),
+    )
+    row = await cursor.fetchone()
+    
+    total_cost = float(row["total_cost"] or 0)
+    input_tokens = int(row["input_tokens"] or 0)
+    output_tokens = int(row["output_tokens"] or 0)
+    query_count = int(row["query_count"] or 0)
+    
+    # Get costs by provider
+    cursor = await db.execute(
+        """SELECT provider, SUM(cost_usd) as cost, COUNT(*) as count
+           FROM cost_usage
+           WHERE created_at > datetime('now', ? || ' days')
+           GROUP BY provider
+           ORDER BY cost DESC""",
+        (f"-{days}",),
+    )
+    rows = await cursor.fetchall()
+    costs_by_provider = {row["provider"]: float(row["cost"]) for row in rows}
+    
+    return {
+        "total_cost": total_cost,
+        "input_tokens": input_tokens,
+        "output_tokens": output_tokens,
+        "total_tokens": input_tokens + output_tokens,
+        "query_count": query_count,
+        "costs_by_provider": costs_by_provider,
+    }
+
+
+async def get_cost_by_provider(days: int = 30) -> list[dict]:
+    """Get cost breakdown by provider."""
+    db = await get_db()
+    cursor = await db.execute(
+        """SELECT provider, SUM(cost_usd) as total_cost, 
+                  SUM(input_tokens) as input_tokens,
+                  SUM(output_tokens) as output_tokens,
+                  COUNT(*) as query_count
+           FROM cost_usage
+           WHERE created_at > datetime('now', ? || ' days')
+           GROUP BY provider
+           ORDER BY total_cost DESC""",
+        (f"-{days}",),
+    )
+    rows = await cursor.fetchall()
+    return [
+        {
+            "provider": row["provider"],
+            "total_cost": float(row["total_cost"]),
+            "input_tokens": int(row["input_tokens"] or 0),
+            "output_tokens": int(row["output_tokens"] or 0),
+            "total_tokens": int((row["input_tokens"] or 0) + (row["output_tokens"] or 0)),
+            "query_count": int(row["query_count"]),
+        }
+        for row in rows
+    ]
+
+
+async def get_top_expensive_users(days: int = 30, limit: int = 10) -> list[dict]:
+    """Get users with highest API costs."""
+    db = await get_db()
+    cursor = await db.execute(
+        """SELECT user_id, SUM(cost_usd) as total_cost, 
+                  SUM(total_tokens) as total_tokens, COUNT(*) as query_count
+           FROM cost_usage
+           WHERE created_at > datetime('now', ? || ' days')
+           GROUP BY user_id
+           ORDER BY total_cost DESC
+           LIMIT ?""",
+        (f"-{days}", limit),
+    )
+    rows = await cursor.fetchall()
+    return [
+        {
+            "user_id": row["user_id"],
+            "total_cost": float(row["total_cost"]),
+            "total_tokens": int(row["total_tokens"] or 0),
+            "query_count": int(row["query_count"]),
+        }
+        for row in rows
+    ]
+
+
+async def get_top_expensive_guilds(days: int = 30, limit: int = 10) -> list[dict]:
+    """Get guilds with highest API costs."""
+    db = await get_db()
+    cursor = await db.execute(
+        """SELECT guild_id, SUM(cost_usd) as total_cost,
+                  SUM(total_tokens) as total_tokens, COUNT(*) as query_count
+           FROM cost_usage
+           WHERE created_at > datetime('now', ? || ' days')
+           GROUP BY guild_id
+           ORDER BY total_cost DESC
+           LIMIT ?""",
+        (f"-{days}", limit),
+    )
+    rows = await cursor.fetchall()
+    return [
+        {
+            "guild_id": row["guild_id"],
+            "total_cost": float(row["total_cost"]),
+            "total_tokens": int(row["total_tokens"] or 0),
+            "query_count": int(row["query_count"]),
+        }
+        for row in rows
+    ]
+
+
+async def get_cost_history(days: int = 30) -> list[dict]:
+    """Get daily cost history."""
+    db = await get_db()
+    cursor = await db.execute(
+        """SELECT DATE(created_at) as date, SUM(cost_usd) as cost, COUNT(DISTINCT provider) as provider_count
+           FROM cost_usage
+           WHERE created_at > datetime('now', ? || ' days')
+           GROUP BY DATE(created_at)
+           ORDER BY date ASC""",
+        (f"-{days}",),
+    )
+    rows = await cursor.fetchall()
+    return [
+        {
+            "date": row["date"],
+            "cost": float(row["cost"]),
+            "provider_count": int(row["provider_count"]),
+        }
+        for row in rows
+    ]
 
 
 async def close_db():

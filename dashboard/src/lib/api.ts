@@ -103,6 +103,38 @@ export interface TestProviderResult {
   latency_ms?: number;
 }
 
+export interface CostSummary {
+  total_cost: number;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  query_count: number;
+  costs_by_provider: Record<string, number>;
+}
+
+export interface CostByProvider {
+  provider: string;
+  total_cost: number;
+  input_tokens: number;
+  output_tokens: number;
+  total_tokens: number;
+  query_count: number;
+}
+
+export interface CostHistoryItem {
+  date: string;
+  cost: number;
+  provider_count: number;
+}
+
+export interface TopExpensiveItem {
+  user_id?: string;
+  guild_id?: string;
+  total_cost: number;
+  total_tokens: number;
+  query_count: number;
+}
+
 export const api = {
   // Auth
   login: (password: string) =>
@@ -316,6 +348,22 @@ export const api = {
         token,
       }
     ),
+
+  // Costs
+  getCostSummary: (token: string, days: number = 30) =>
+    apiFetch<CostSummary>(`/api/costs/summary?days=${days}`, { token }),
+
+  getCostByProvider: (token: string, days: number = 30) =>
+    apiFetch<{ costs_by_provider: CostByProvider[] }>(`/api/costs/by-provider?days=${days}`, { token }),
+
+  getCostHistory: (token: string, days: number = 30) =>
+    apiFetch<{ history: CostHistoryItem[] }>(`/api/costs/history?days=${days}`, { token }),
+
+  getTopExpensiveUsers: (token: string, days: number = 30, limit: number = 5) =>
+    apiFetch<{ top_users: TopExpensiveItem[] }>(`/api/costs/top-users?days=${days}&limit=${limit}`, { token }),
+
+  getTopExpensiveGuilds: (token: string, days: number = 30, limit: number = 5) =>
+    apiFetch<{ top_guilds: TopExpensiveItem[] }>(`/api/costs/top-guilds?days=${days}&limit=${limit}`, { token }),
 
   // Wizard
   getWizardStatus: (token: string) =>
