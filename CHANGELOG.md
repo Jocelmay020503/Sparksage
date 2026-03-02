@@ -1,5 +1,52 @@
 # Changelog
 
+## [0.6.3] - 2026-03-04
+
+### Added - Phase 5.5: Dashboard Polish (Dark Mode & Responsive Design)
+
+- **Dark Mode Support**:
+  - `ThemeProvider` component wrapping app with `next-themes` integration
+  - `ThemeToggle` button component in sidebar footer with sun/moon icons
+  - System-aware theme detection with automatic light/dark mode switching
+  - Root layout enhanced with `suppressHydrationWarning` for theme handling
+  - Proper dark mode color variables in globals.css (already existed)
+
+- **Responsive Design Improvements**:
+  - All dashboard pages updated with Tailwind responsive breakpoints (sm:, md:, lg:, xl:)
+  - Cost dashboard: flexible header with wrapped time range selector buttons
+  - Cost summary cards: `sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5` for optimal scaling
+  - Cost charts section: `sm:grid-cols-1 lg:grid-cols-2` responsive grid
+  - Provider cost table: horizontal scroll on mobile with `overflow-x-auto`, hidden token columns on small screens
+  - Top users/guilds: `sm:grid-cols-2` responsive grid layout
+  - Overview page: `sm:grid-cols-2 lg:grid-cols-4` summary cards
+  - Providers page: `sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3` provider grid
+  - Prompts & Channel Providers: `sm:grid-cols-1 md:grid-cols-2` form layouts
+
+- **Mobile Optimization**:
+  - Dashboard main layout: `w-full overflow-x-hidden` to prevent horizontal scroll
+  - Sticky header with `sticky top-0 bg-background z-10` for persistent navigation
+  - Responsive padding: `p-4 sm:p-6` for better mobile spacing
+  - Text truncation on dashboard header title for narrow screens
+  - Button layouts with proper sizing (`text-xs sm:text-sm`) for mobile
+  - Table responsiveness with minimum widths and selective column hiding
+
+- **New Components**:
+  - `dashboard/src/components/theme-provider.tsx` — Next.js theme provider wrapper
+  - `dashboard/src/components/theme-toggle.tsx` — Dark/light mode toggle button
+
+- **Enhanced Files**:
+  - `dashboard/src/app/layout.tsx` — ThemeProvider integration
+  - `dashboard/src/app/dashboard/layout.tsx` — Responsive main layout with sticky header
+  - `dashboard/src/app/dashboard/page.tsx` — Responsive grid breakpoints
+  - `dashboard/src/app/dashboard/costs/page.tsx` — Full mobile responsiveness
+  - `dashboard/src/app/dashboard/providers/page.tsx` — Responsive provider grid
+  - `dashboard/src/app/dashboard/prompts/page.tsx` — Responsive form layout
+  - `dashboard/src/app/dashboard/channel-providers/page.tsx` — Responsive form grid
+  - `dashboard/src/components/sidebar/app-sidebar.tsx` — Theme toggle in footer
+
+### Fixed
+- TypeScript type errors in cost dashboard PieChart label renderer (Phase 5.4 hotfix)
+
 ## [0.6.2] - 2026-03-04
 
 ### Added - Phase 5.4: Cost Tracking and Expense Monitoring
