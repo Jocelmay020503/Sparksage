@@ -104,6 +104,15 @@ async def init_db():
         CREATE INDEX IF NOT EXISTS idx_trans_user ON translation_logs(user_id);
         CREATE INDEX IF NOT EXISTS idx_trans_languages ON translation_logs(source_language, target_language);
 
+        CREATE TABLE IF NOT EXISTS channel_prompts (
+            channel_id   TEXT PRIMARY KEY,
+            guild_id     TEXT NOT NULL,
+            system_prompt TEXT NOT NULL,
+            created_at   TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_channel_prompts_guild ON channel_prompts(guild_id);
+
         INSERT OR IGNORE INTO wizard_state (id) VALUES (1);
         """
     )
@@ -565,6 +574,60 @@ async def get_translation_logs(
     params.append(limit)
 
     cursor = await db.execute(query, params)
+    rows = await cursor.fetchall()
+    return [dict(row) for row in rows]
+
+
+# --- Channel Prompt helpers ---
+
+
+async def get_channel_prompt(channel_id: str) -> str | None:
+    """Get custom system prompt for a specific channel."""
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT system_prompt FROM channel_prompts WHERE channel_id = ?",
+        (channel_id,),
+    )
+    row = await cursor.fetchone()
+    return row["system_prompt"] if row else None
+
+
+async def set_channel_prompt(channel_id: str, guild_id: str, system_prompt: str):
+    """Set or update custom system prompt for a channel."""
+    db = await get_db()
+    await db.execute(
+        """INSERT INTO channel_prompts (channel_id, guild_id, system_prompt, updated_at)
+           VALUES (?, ?, ?, datetime('now'))
+           ON CONFLICT(channel_id) DO UPDATE SET
+               system_prompt = excluded.system_prompt,
+               updated_at = datetime('now')""",
+        (channel_id, guild_id, system_prompt),
+    )
+    await db.commit()
+
+
+async def remove_channel_prompt(channel_id: str):
+    """Remove custom system prompt for a channel."""
+    db = await get_db()
+    await db.execute(
+        "DELETE FROM channel_prompts WHERE channel_id = ?",
+        (channel_id,),
+    )
+    await db.commit()
+
+
+async def get_all_channel_prompts(guild_id: str | None = None) -> list[dict]:
+    """Get all channel prompts, optionally filtered by guild."""
+    db = await get_db()
+    if guild_id:
+        cursor = await db.execute(
+            "SELECT * FROM channel_prompts WHERE guild_id = ? ORDER BY created_at DESC",
+            (guild_id,),
+        )
+    else:
+        cursor = await db.execute(
+            "SELECT * FROM channel_prompts ORDER BY created_at DESC"
+        )
     rows = await cursor.fetchall()
     return [dict(row) for row in rows]
 

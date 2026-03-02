@@ -74,6 +74,14 @@ export interface PermissionItem {
   role_id: string;
 }
 
+export interface ChannelPromptItem {
+  channel_id: string;
+  guild_id: string;
+  system_prompt: string;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface BotStatus {
   online: boolean;
   latency: number | null;
@@ -140,7 +148,6 @@ export const api = {
       `/api/conversations/${channelId}`,
       { token }
     ),
-
   deleteConversation: (token: string, channelId: string) =>
     apiFetch<{ status: string }>(`/api/conversations/${channelId}`, {
       method: "DELETE",
@@ -207,6 +214,58 @@ export const api = {
   deletePermission: (token: string, commandName: string, guildId: string, roleId: string) =>
     apiFetch<{ status: string }>(
       `/api/permissions?command_name=${encodeURIComponent(commandName)}&guild_id=${encodeURIComponent(guildId)}&role_id=${encodeURIComponent(roleId)}`,
+      {
+        method: "DELETE",
+        token,
+      }
+    ),
+
+  // Channel Prompts
+  getChannelPrompts: (token: string, guildId?: string) => {
+    const suffix = guildId
+      ? `?guild_id=${encodeURIComponent(guildId)}`
+      : "";
+    return apiFetch<{ channel_prompts: ChannelPromptItem[] }>(`/api/channel-prompts${suffix}`, { token });
+  },
+
+  getChannelPrompt: (token: string, channelId: string) =>
+    apiFetch<{ channel_id: string; system_prompt: string }>(
+      `/api/channel-prompts/${encodeURIComponent(channelId)}`,
+      { token }
+    ),
+
+  createChannelPrompt: (
+    token: string,
+    payload: {
+      channel_id: string;
+      guild_id: string;
+      system_prompt: string;
+    }
+  ) =>
+    apiFetch<{ status: string; channel_id: string }>("/api/channel-prompts", {
+      method: "POST",
+      body: JSON.stringify(payload),
+      token,
+    }),
+
+  updateChannelPrompt: (
+    token: string,
+    channelId: string,
+    guildId: string,
+    systemPrompt: string
+  ) =>
+    apiFetch<{ status: string; channel_id: string }>(
+      `/api/channel-prompts/${encodeURIComponent(channelId)}?guild_id=${encodeURIComponent(guildId)}`,
+      {
+        method: "PUT",
+        body: JSON.stringify({ system_prompt: systemPrompt }),
+        token,
+      }
+    ),
+
+  deleteChannelPrompt: (token: string, channelId: string) =>
+    apiFetch<{ status: string; channel_id: string }>(
+      `/api/channel-prompts/${encodeURIComponent(channelId)}`,
       {
         method: "DELETE",
         token,
