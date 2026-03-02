@@ -90,6 +90,35 @@ export interface ChannelProviderItem {
   updated_at: string;
 }
 
+export interface AnalyticsSummary {
+  total_events: number;
+  events_by_type: Record<string, number>;
+  events_by_provider: Record<string, number>;
+  total_tokens: number;
+  avg_latency_ms: number;
+}
+
+export interface AnalyticsHistoryItem {
+  date: string;
+  event_type: string;
+  count: number;
+  total_tokens: number;
+  avg_latency_ms: number;
+  provider: string | null;
+}
+
+export interface TopChannelItem {
+  channel_id: string;
+  count: number;
+  total_tokens: number;
+}
+
+export interface TopUserItem {
+  user_id: string;
+  count: number;
+  total_tokens: number;
+}
+
 export interface BotStatus {
   online: boolean;
   latency: number | null;
@@ -327,4 +356,22 @@ export const api = {
       body: JSON.stringify({ config: data }),
       token,
     }),
+
+  // Analytics
+  getAnalyticsSummary: (token: string, days: number = 7) =>
+    apiFetch<AnalyticsSummary>(`/api/analytics/summary?days=${days}`, { token }),
+
+  getAnalyticsHistory: (token: string, days: number = 7, eventType?: string) => {
+    const params = new URLSearchParams();
+    params.set("days", days.toString());
+    if (eventType) params.set("event_type", eventType);
+    const suffix = params.toString() ? `?${params.toString()}` : "";
+    return apiFetch<AnalyticsHistoryItem[]>(`/api/analytics/history${suffix}`, { token });
+  },
+
+  getTopChannels: (token: string, limit: number = 10) =>
+    apiFetch<TopChannelItem[]>(`/api/analytics/top-channels?limit=${limit}`, { token }),
+
+  getTopUsers: (token: string, limit: number = 10) =>
+    apiFetch<TopUserItem[]>(`/api/analytics/top-users?limit=${limit}`, { token }),
 };
