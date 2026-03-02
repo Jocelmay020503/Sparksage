@@ -44,6 +44,28 @@ COMMON_LANGUAGES = [
 ]
 
 
+async def language_autocomplete(
+    interaction: discord.Interaction,
+    current: str,
+) -> list[app_commands.Choice[str]]:
+    """Provide language suggestions for autocomplete."""
+    if not current:
+        return [
+            app_commands.Choice(name=lang, value=lang)
+            for lang in COMMON_LANGUAGES[:25]
+        ]
+
+    filtered = [
+        lang for lang in COMMON_LANGUAGES
+        if current.lower() in lang.lower()
+    ]
+
+    return [
+        app_commands.Choice(name=lang, value=lang)
+        for lang in filtered[:25]
+    ]
+
+
 class Translate(commands.Cog):
     """Translation commands for multilingual support."""
 
@@ -66,7 +88,7 @@ class Translate(commands.Cog):
         await interaction.response.defer()
 
         try:
-            translation = await self._translate_text(text, language)
+            translation = await self._translate_text(interaction, text, language)
 
             if len(translation) <= 2000:
                 await interaction.followup.send(translation)
@@ -78,7 +100,12 @@ class Translate(commands.Cog):
         except Exception as e:
             await interaction.followup.send(f"❌ Translation failed: {str(e)}")
 
-    async def _translate_text(self, text: str, target_language: str) -> str:
+    async def _translate_text(
+        self, 
+        interaction: discord.Interaction, 
+        text: str, 
+        target_language: str
+    ) -> str:
         """Translate text using AI provider."""
         # Detect source language if not provided
         detection_prompt = f"Detect the language of this text and respond with ONLY the language name (e.g., 'English', 'Spanish'):\n\n{text}"
@@ -150,28 +177,6 @@ Provide ONLY the translation, no explanations or additional text."""
             )
         except Exception as e:
             print(f"⚠️ Failed to log translation: {e}")
-
-
-async def language_autocomplete(
-    interaction: discord.Interaction,
-    current: str,
-) -> list[app_commands.Choice[str]]:
-    """Provide language suggestions for autocomplete."""
-    if not current:
-        return [
-            app_commands.Choice(name=lang, value=lang)
-            for lang in COMMON_LANGUAGES[:25]
-        ]
-
-    filtered = [
-        lang for lang in COMMON_LANGUAGES
-        if current.lower() in lang.lower()
-    ]
-
-    return [
-        app_commands.Choice(name=lang, value=lang)
-        for lang in filtered[:25]
-    ]
 
 
 async def setup(bot: commands.Bot):
