@@ -19,13 +19,15 @@ async def get_history(channel_id: int) -> list[dict]:
     return [{"role": m["role"], "content": m["content"]} for m in messages]
 
 
-async def ask_ai(channel_id: int, user_name: str, message: str) -> tuple[str, str]:
+async def ask_ai(channel_id: int, user_name: str, message: str, guild_id: str | None = None, user_id: str | None = None) -> tuple[str, str]:
     """Send a message to AI and return (response, provider_name).
     
     Args:
         channel_id: Discord channel ID
         user_name: Display name of the user
         message: The message content
+        guild_id: Discord guild ID (for analytics)
+        user_id: Discord user ID (for analytics)
         
     Returns:
         Tuple of (response text, provider name used)
@@ -43,15 +45,34 @@ async def ask_ai(channel_id: int, user_name: str, message: str) -> tuple[str, st
     channel_provider = await database.get_channel_provider(str(channel_id))
 
     try:
-        response, provider_name = providers.chat(
+        response, provider_name, latency_ms = providers.chat(
             history,
             system_prompt,
             preferred_provider=channel_provider,
         )
         # Store assistant response in DB
         await database.add_message(str(channel_id), "assistant", response, provider=provider_name)
+        
+        # Record analytics event
+        await database.add_analytics_event(
+            event_type="command",
+            guild_id=guild_id,
+            channel_id=str(channel_id),
+            user_id=user_id,
+            provider=provider_name,
+            latency_ms=latency_ms,
+        )
+        
         return response, provider_name
     except RuntimeError as e:
+        # Record failed event
+        await database.add_analytics_event(
+            event_type="command_error",
+            guild_id=guild_id,
+            channel_id=str(channel_id),
+            user_id=user_id,
+            provider="none",
+        )
         return f"Sorry, all AI providers failed:\n{e}", "none"
 
 
