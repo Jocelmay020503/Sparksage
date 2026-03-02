@@ -90,6 +90,20 @@ async def init_db():
         CREATE INDEX IF NOT EXISTS idx_mod_user ON moderation_logs(user_id);
         CREATE INDEX IF NOT EXISTS idx_mod_severity ON moderation_logs(severity);
 
+        CREATE TABLE IF NOT EXISTS translation_logs (
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id         TEXT NOT NULL,
+            channel_id       TEXT NOT NULL,
+            user_id          TEXT NOT NULL,
+            source_language  TEXT NOT NULL,
+            target_language  TEXT NOT NULL,
+            provider         TEXT,
+            created_at       TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_trans_guild ON translation_logs(guild_id);
+        CREATE INDEX IF NOT EXISTS idx_trans_user ON translation_logs(user_id);
+        CREATE INDEX IF NOT EXISTS idx_trans_languages ON translation_logs(source_language, target_language);
+
         INSERT OR IGNORE INTO wizard_state (id) VALUES (1);
         """
     )
@@ -164,6 +178,7 @@ async def sync_env_to_db():
         "MODERATION_ENABLED": "true" if cfg.MODERATION_ENABLED else "false",
         "MODERATION_SENSITIVITY": cfg.MODERATION_SENSITIVITY,
         "MOD_LOG_CHANNEL_ID": cfg.MOD_LOG_CHANNEL_ID,
+        "TRANSLATION_LOGGING_ENABLED": "true" if cfg.TRANSLATION_LOGGING_ENABLED else "false",
     }
     # Only insert keys that don't already exist in DB (don't overwrite user edits)
     db = await get_db()
@@ -496,6 +511,62 @@ async def mark_moderation_reviewed(log_id: int):
         (log_id,),
     )
     await db.commit()
+
+
+# --- Translation helpers ---
+
+
+async def add_translation_log(
+    guild_id: str,
+    channel_id: str,
+    user_id: str,
+    source_language: str,
+    target_language: str,
+    provider: str | None = None,
+):
+    """Log a translation event."""
+    db = await get_db()
+    await db.execute(
+        "INSERT INTO translation_logs (guild_id, channel_id, user_id, source_language, target_language, provider) VALUES (?, ?, ?, ?, ?, ?)",
+        (guild_id, channel_id, user_id, source_language, target_language, provider),
+    )
+    await db.commit()
+
+
+async def get_translation_logs(
+    guild_id: str | None = None,
+    user_id: str | None = None,
+    source_language: str | None = None,
+    target_language: str | None = None,
+    limit: int = 100,
+) -> list[dict]:
+    """Get translation logs with optional filters."""
+    db = await get_db()
+    query = "SELECT * FROM translation_logs WHERE 1=1"
+    params = []
+
+    if guild_id:
+        query += " AND guild_id = ?"
+        params.append(guild_id)
+
+    if user_id:
+        query += " AND user_id = ?"
+        params.append(user_id)
+
+    if source_language:
+        query += " AND source_language = ?"
+        params.append(source_language)
+
+    if target_language:
+        query += " AND target_language = ?"
+        params.append(target_language)
+
+    query += " ORDER BY created_at DESC LIMIT ?"
+    params.append(limit)
+
+    cursor = await db.execute(query, params)
+    rows = await cursor.fetchall()
+    return [dict(row) for row in rows]
 
 
 async def close_db():
