@@ -1,5 +1,49 @@
 # Changelog
 
+## [0.5.0] - 2026-03-02
+
+### Added - Phase 4.1: Daily Digest Scheduler
+
+- **Digest Cog** (`cogs/digest.py`) with automated daily activity summarization
+- **Daily Digest Scheduler** using `discord.ext.tasks.loop`:
+  - Configurable schedule via `DIGEST_TIME` (default: 09:00 UTC)
+  - Collects messages from past 24 hours across all accessible channels
+  - AI-powered summarization covering most active discussions, highlights, and sentiment
+  - Fallback to basic statistics if AI summarization fails
+  - Skips the digest channel itself to avoid recursion
+- **Manual Digest Command** (`!digest`) for administrators to trigger on-demand
+- **Digest Configuration** in `config.py`:
+  - `DIGEST_ENABLED` — enable/disable digest (default: false)
+  - `DIGEST_CHANNEL_ID` — target channel for posting digests
+  - `DIGEST_TIME` — scheduled time in HH:MM UTC format (default: "09:00")
+- **Database Integration** in `db.py`:
+  - Digest settings synced to/from database via `sync_env_to_db()`
+  - Config reload support for digest settings
+- **Dashboard Digest Controls** in `/dashboard/settings`:
+  - Enable/disable toggle with radio buttons
+  - Channel ID input field with helper text
+  - Time picker (HTML5 time input) for scheduling
+  - Description explaining digest functionality
+- **Rich Embed Formatting** for digest posts with timestamp and SparkSage branding
+
+### Changed - Phase 4.1
+
+- **`bot.py`** — loads `cogs.digest` during startup
+- **`config.py`** — adds `DIGEST_CHANNEL_ID`, `DIGEST_TIME`, `DIGEST_ENABLED` config keys with reload support
+- **`db.py`** — includes digest settings in `sync_env_to_db()` function
+- **`dashboard/src/app/dashboard/settings/page.tsx`** — adds Daily Digest section with controls for all digest settings
+
+### Acceptance Criteria ✓ (Phase 4.1)
+
+- ✓ Digest runs automatically at configured time (24-hour loop with precise scheduling)
+- ✓ Collects messages from past 24h across all channels
+- ✓ Summarizes activity using AI with fallback chain support
+- ✓ Posts to designated channel as rich embed
+- ✓ Dashboard controls for all digest settings
+- ✓ Manual trigger available via `!digest` command (admin-only)
+
+---
+
 ## [0.4.4] - 2026-03-02
 
 ### Added - Phase 3.5: Role-Based Access Control for Commands
