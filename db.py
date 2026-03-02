@@ -122,6 +122,26 @@ async def init_db():
         );
         CREATE INDEX IF NOT EXISTS idx_channel_providers_guild ON channel_providers(guild_id);
 
+        CREATE TABLE IF NOT EXISTS analytics (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_type   TEXT NOT NULL,
+            guild_id     TEXT,
+            channel_id   TEXT,
+            user_id      TEXT,
+            provider     TEXT,
+            tokens_used  INTEGER,
+            latency_ms   INTEGER,
+            input_tokens INTEGER,
+            output_tokens INTEGER,
+            created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_analytics_guild ON analytics(guild_id);
+        CREATE INDEX IF NOT EXISTS idx_analytics_channel ON analytics(channel_id);
+        CREATE INDEX IF NOT EXISTS idx_analytics_user ON analytics(user_id);
+        CREATE INDEX IF NOT EXISTS idx_analytics_provider ON analytics(provider);
+        CREATE INDEX IF NOT EXISTS idx_analytics_created ON analytics(created_at);
+        CREATE INDEX IF NOT EXISTS idx_analytics_event ON analytics(event_type);
+
         INSERT OR IGNORE INTO wizard_state (id) VALUES (1);
         """
     )
@@ -691,6 +711,178 @@ async def get_all_channel_providers(guild_id: str | None = None) -> list[dict]:
         cursor = await db.execute(
             "SELECT * FROM channel_providers ORDER BY created_at DESC"
         )
+    rows = await cursor.fetchall()
+    return [dict(row) for row in rows]
+
+
+# --- Analytics helpers ---
+
+
+async def add_analytics_event(
+    event_type: str,
+    guild_id: str | None = None,
+    channel_id: str | None = None,
+    user_id: str | None = None,
+    provider: str | None = None,
+    tokens_used: int | None = None,
+    latency_ms: int | None = None,
+    input_tokens: int | None = None,
+    output_tokens: int | None = None,
+):
+    """Record an analytics event."""
+    db = await get_db()
+    await db.execute(
+        """
+        INSERT INTO analytics (event_type, guild_id, channel_id, user_id, provider, tokens_used, latency_ms, input_tokens, output_tokens)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """,
+        (event_type, guild_id, channel_id, user_id, provider, tokens_used, latency_ms, input_tokens, output_tokens),
+    )
+    await db.commit()
+
+
+async def get_analytics_summary(guild_id: str | None = None, days: int = 7) -> dict:
+    """Get analytics summary for the past N days."""
+    db = await get_db()
+    
+    where_clause = "WHERE datetime(created_at) > datetime('now', '-' || ? || ' days')"
+    params = [days]
+    
+    if guild_id:
+        where_clause += " AND guild_id = ?"
+        params.append(guild_id)
+    
+    # Total events
+    cursor = await db.execute(
+        f"SELECT COUNT(*) as total FROM analytics {where_clause}",
+        params,
+    )
+    total = (await cursor.fetchone())["total"]
+    
+    # Events by type
+    cursor = await db.execute(
+        f"SELECT event_type, COUNT(*) as count FROM analytics {where_clause} GROUP BY event_type",
+        params,
+    )
+    events_by_type = {row["event_type"]: row["count"] for row in await cursor.fetchall()}
+    
+    # Events by provider
+    cursor = await db.execute(
+        f"SELECT provider, COUNT(*) as count FROM analytics {where_clause} AND provider IS NOT NULL GROUP BY provider",
+        params,
+    )
+    events_by_provider = {row["provider"]: row["count"] for row in await cursor.fetchall()}
+    
+    # Total tokens
+    cursor = await db.execute(
+        f"SELECT COALESCE(SUM(tokens_used), 0) as total FROM analytics {where_clause}",
+        params,
+    )
+    total_tokens = (await cursor.fetchone())["total"] or 0
+    
+    # Average latency
+    cursor = await db.execute(
+        f"SELECT COALESCE(AVG(latency_ms), 0) as avg FROM analytics {where_clause} AND latency_ms IS NOT NULL",
+        params,
+    )
+    avg_latency = (await cursor.fetchone())["avg"] or 0
+    
+    return {
+        "total_events": total,
+        "events_by_type": events_by_type,
+        "events_by_provider": events_by_provider,
+        "total_tokens": total_tokens,
+        "avg_latency_ms": round(avg_latency, 2),
+    }
+
+
+async def get_analytics_history(
+    guild_id: str | None = None,
+    days: int = 7,
+    event_type: str | None = None,
+) -> list[dict]:
+    """Get detailed analytics history with daily aggregation."""
+    db = await get_db()
+    
+    where_clause = "WHERE datetime(created_at) > datetime('now', '-' || ? || ' days')"
+    params = [days]
+    
+    if guild_id:
+        where_clause += " AND guild_id = ?"
+        params.append(guild_id)
+    
+    if event_type:
+        where_clause += " AND event_type = ?"
+        params.append(event_type)
+    
+    cursor = await db.execute(
+        f"""
+        SELECT 
+            DATE(created_at) as date,
+            event_type,
+            COUNT(*) as count,
+            COALESCE(SUM(tokens_used), 0) as total_tokens,
+            COALESCE(AVG(latency_ms), 0) as avg_latency_ms,
+            provider
+        FROM analytics
+        {where_clause}
+        GROUP BY DATE(created_at), event_type, provider
+        ORDER BY created_at DESC
+        """,
+        params,
+    )
+    rows = await cursor.fetchall()
+    return [dict(row) for row in rows]
+
+
+async def get_top_channels(guild_id: str | None = None, limit: int = 10) -> list[dict]:
+    """Get most active channels by event count."""
+    db = await get_db()
+    
+    where_clause = "WHERE channel_id IS NOT NULL"
+    params = []
+    
+    if guild_id:
+        where_clause += " AND guild_id = ?"
+        params.append(guild_id)
+    
+    cursor = await db.execute(
+        f"""
+        SELECT channel_id, COUNT(*) as count, COALESCE(SUM(tokens_used), 0) as total_tokens
+        FROM analytics
+        {where_clause}
+        GROUP BY channel_id
+        ORDER BY count DESC
+        LIMIT ?
+        """,
+        params + [limit],
+    )
+    rows = await cursor.fetchall()
+    return [dict(row) for row in rows]
+
+
+async def get_top_users(guild_id: str | None = None, limit: int = 10) -> list[dict]:
+    """Get most active users by event count."""
+    db = await get_db()
+    
+    where_clause = "WHERE user_id IS NOT NULL"
+    params = []
+    
+    if guild_id:
+        where_clause += " AND guild_id = ?"
+        params.append(guild_id)
+    
+    cursor = await db.execute(
+        f"""
+        SELECT user_id, COUNT(*) as count, COALESCE(SUM(tokens_used), 0) as total_tokens
+        FROM analytics
+        {where_clause}
+        GROUP BY user_id
+        ORDER BY count DESC
+        LIMIT ?
+        """,
+        params + [limit],
+    )
     rows = await cursor.fetchall()
     return [dict(row) for row in rows]
 
