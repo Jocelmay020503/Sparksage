@@ -48,6 +48,16 @@ WELCOME_ENABLED = os.getenv("WELCOME_ENABLED", "false").strip().lower() in {
     "on",
 }
 
+# Digest settings
+DIGEST_CHANNEL_ID = os.getenv("DIGEST_CHANNEL_ID", "")
+DIGEST_TIME = os.getenv("DIGEST_TIME", "09:00")
+DIGEST_ENABLED = os.getenv("DIGEST_ENABLED", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+
 # Dashboard settings
 DATABASE_PATH = os.getenv("DATABASE_PATH", "sparksage.db")
 DASHBOARD_PORT = int(os.getenv("DASHBOARD_PORT", "8000"))
@@ -128,6 +138,9 @@ def reload_from_db(db_config: dict[str, str]):
         "WELCOME_CHANNEL_ID": str,
         "WELCOME_MESSAGE": str,
         "WELCOME_ENABLED": lambda v: v.strip().lower() in {"1", "true", "yes", "on"},
+        "DIGEST_CHANNEL_ID": str,
+        "DIGEST_TIME": str,
+        "DIGEST_ENABLED": lambda v: v.strip().lower() in {"1", "true", "yes", "on"},
         "ADMIN_PASSWORD": str,
         "DISCORD_CLIENT_ID": str,
         "DISCORD_CLIENT_SECRET": str,
