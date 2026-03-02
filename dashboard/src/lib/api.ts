@@ -57,6 +57,17 @@ export interface MessageItem {
   created_at: string;
 }
 
+export interface FAQItem {
+  id: number;
+  guild_id: string;
+  question: string;
+  answer: string;
+  match_keywords: string;
+  times_used: number;
+  created_by: string | null;
+  created_at: string;
+}
+
 export interface BotStatus {
   online: boolean;
   latency: number | null;
@@ -130,6 +141,40 @@ export const api = {
       token,
     }),
 
+  // FAQs
+  getFaqs: (token: string, guildId?: string) => {
+    const suffix = guildId
+      ? `?guild_id=${encodeURIComponent(guildId)}`
+      : "";
+    return apiFetch<{ faqs: FAQItem[] }>(`/api/faqs${suffix}`, { token });
+  },
+
+  createFaq: (
+    token: string,
+    payload: {
+      guild_id: string;
+      question: string;
+      answer: string;
+      match_keywords: string;
+      created_by?: string;
+    }
+  ) =>
+    apiFetch<{ id: number; status: string }>("/api/faqs", {
+      method: "POST",
+      body: JSON.stringify(payload),
+      token,
+    }),
+
+  deleteFaq: (token: string, faqId: number, guildId?: string) => {
+    const suffix = guildId
+      ? `?guild_id=${encodeURIComponent(guildId)}`
+      : "";
+    return apiFetch<{ status: string }>(`/api/faqs/${faqId}${suffix}`, {
+      method: "DELETE",
+      token,
+    });
+  },
+
   // Wizard
   getWizardStatus: (token: string) =>
     apiFetch<{ completed: boolean; current_step: number }>("/api/wizard/status", { token }),
@@ -137,7 +182,7 @@ export const api = {
   completeWizard: (token: string, data: Record<string, string>) =>
     apiFetch<{ status: string }>("/api/wizard/complete", {
       method: "POST",
-      body: JSON.stringify(data),
+      body: JSON.stringify({ config: data }),
       token,
     }),
 };

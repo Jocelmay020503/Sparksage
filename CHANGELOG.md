@@ -1,5 +1,34 @@
 # Changelog
 
+## [0.4.2] - 2026-03-02
+
+### Added - Phase 3.3: FAQ Auto-Detection and Response
+
+- **FAQ database schema** (`faqs` table) with `times_used` tracking and guild-level indexing
+- **FAQ Cog** (`cogs/faq.py`) with `/faq add`, `/faq list`, `/faq remove`
+- **Auto FAQ detection** in message listener using keyword overlap confidence and automatic reply on high-confidence matches
+- **FAQ usage analytics** via `times_used` increment on every auto-response
+- **FAQ API endpoints**:
+  - `GET /api/faqs`
+  - `POST /api/faqs`
+  - `DELETE /api/faqs/{id}`
+- **Dashboard FAQ page** at `/dashboard/faqs` for creating, viewing, and deleting FAQ entries
+
+### Changed - Phase 3.3
+
+- **`bot.py`** — loads `cogs.faq` during startup
+- **`api/main.py`** — registers `faqs` router under `/api/faqs`
+- **`dashboard/src/lib/api.ts`** — adds FAQ client types and CRUD methods
+- **`dashboard/src/components/sidebar/app-sidebar.tsx`** — adds FAQ navigation item
+
+### Acceptance Criteria ✓ (Phase 3.3)
+
+- ✓ Admins can CRUD FAQ entries via Discord commands and dashboard
+- ✓ Bot auto-responds to messages matching FAQ keywords
+- ✓ FAQ usage is tracked (`times_used` counter)
+
+---
+
 ## [0.4.1] - 2026-03-02
 
 ### Added - Phase 3.2: Code Review with Syntax Highlighting
