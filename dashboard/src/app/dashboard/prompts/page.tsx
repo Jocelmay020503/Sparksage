@@ -93,7 +93,7 @@ export default function PromptsPage() {
           <CardTitle className="text-base">Set Channel Prompt</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="guild-id">Guild ID</Label>
               <Input id="guild-id" value={guildId} onChange={(e) => setGuildId(e.target.value)} placeholder="123456789012345678" />

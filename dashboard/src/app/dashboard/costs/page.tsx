@@ -134,15 +134,16 @@ export default function CostsDashboard() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <h1 className="text-2xl font-bold">Cost Tracking</h1>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           {([7, 14, 30, 60, 90] as TimeRange[]).map((range) => (
             <Button
               key={range}
               variant={timeRange === range ? "default" : "outline"}
               onClick={() => setTimeRange(range)}
               size="sm"
+              className="text-xs sm:text-sm"
             >
               {range}d
             </Button>
@@ -160,7 +161,7 @@ export default function CostsDashboard() {
       )}
 
       {/* Summary Cards */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between pb-2">
             <CardTitle className="text-sm font-medium">Total Cost</CardTitle>
@@ -240,7 +241,7 @@ export default function CostsDashboard() {
       </div>
 
       {/* Charts */}
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 sm:grid-cols-1 lg:grid-cols-2">
         {/* Daily Costs */}
         <Card>
           <CardHeader>
@@ -320,20 +321,20 @@ export default function CostsDashboard() {
       </div>
 
       {/* Provider Breakdown Table */}
-      <Card>
+      <Card className="overflow-x-auto">
         <CardHeader>
-          <CardTitle>Provider Breakdown</CardTitle>
+          <CardTitle>Provider Cost Breakdown</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
+            <table className="w-full text-sm min-w-[500px]">
               <thead>
                 <tr className="border-b">
                   <th className="text-left py-2 px-2">Provider</th>
                   <th className="text-right py-2 px-2">Cost</th>
                   <th className="text-right py-2 px-2">Queries</th>
-                  <th className="text-right py-2 px-2">Input Tokens</th>
-                  <th className="text-right py-2 px-2">Output Tokens</th>
+                  <th className="text-right py-2 px-2 hidden sm:table-cell">Input Tokens</th>
+                  <th className="text-right py-2 px-2 hidden sm:table-cell">Output Tokens</th>
                 </tr>
               </thead>
               <tbody>
@@ -361,10 +362,10 @@ export default function CostsDashboard() {
                       <td className="text-right py-2 px-2 text-muted-foreground">
                         {provider.query_count}
                       </td>
-                      <td className="text-right py-2 px-2 text-muted-foreground">
+                      <td className="text-right py-2 px-2 text-muted-foreground hidden sm:table-cell">
                         {provider.input_tokens.toLocaleString()}
                       </td>
-                      <td className="text-right py-2 px-2 text-muted-foreground">
+                      <td className="text-right py-2 px-2 text-muted-foreground hidden sm:table-cell">
                         {provider.output_tokens.toLocaleString()}
                       </td>
                     </tr>
@@ -377,7 +378,7 @@ export default function CostsDashboard() {
       </Card>
 
       {/* Top Users and Guilds */}
-      <div className="grid gap-6 md:grid-cols-2">
+      <div className="grid gap-6 sm:grid-cols-2">
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">

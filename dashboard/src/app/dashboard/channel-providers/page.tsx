@@ -96,7 +96,7 @@ export default function ChannelProvidersPage() {
           <CardTitle className="text-base">Set Channel Provider</CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2">
             <div className="space-y-2">
               <Label htmlFor="guild-id">Guild ID</Label>
               <Input

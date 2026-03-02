@@ -75,7 +75,7 @@ export default function ProvidersPage() {
       )}
 
       {/* Provider grid */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+      <div className="grid gap-4 sm:grid-cols-1 md:grid-cols-2 lg:grid-cols-3">
         {data?.providers.map((provider) => (
           <ProviderCard
             key={provider.name}
