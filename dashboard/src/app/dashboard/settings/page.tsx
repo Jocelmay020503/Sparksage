@@ -28,6 +28,9 @@ const settingsSchema = z.object({
   DIGEST_ENABLED: z.enum(["true", "false"]),
   DIGEST_CHANNEL_ID: z.string(),
   DIGEST_TIME: z.string(),
+  MODERATION_ENABLED: z.enum(["true", "false"]),
+  MODERATION_SENSITIVITY: z.enum(["low", "medium", "high"]),
+  MOD_LOG_CHANNEL_ID: z.string(),
   GEMINI_API_KEY: z.string(),
   GROQ_API_KEY: z.string(),
   OPENROUTER_API_KEY: z.string(),
@@ -49,6 +52,9 @@ const DEFAULTS: SettingsForm = {
   DIGEST_ENABLED: "false",
   DIGEST_CHANNEL_ID: "",
   DIGEST_TIME: "09:00",
+  MODERATION_ENABLED: "false",
+  MODERATION_SENSITIVITY: "medium",
+  MOD_LOG_CHANNEL_ID: "",
   GEMINI_API_KEY: "",
   GROQ_API_KEY: "",
   OPENROUTER_API_KEY: "",
@@ -118,6 +124,7 @@ export default function SettingsPage() {
   const systemPrompt = form.watch("SYSTEM_PROMPT");
   const welcomeEnabled = form.watch("WELCOME_ENABLED");
   const digestEnabled = form.watch("DIGEST_ENABLED");
+  const moderationEnabled = form.watch("MODERATION_ENABLED");
 
   if (loading) {
     return (
@@ -321,6 +328,89 @@ export default function SettingsPage() {
               />
               <p className="text-xs text-muted-foreground">
                 Time of day to post the digest (format: HH:MM in UTC timezone)
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Content Moderation */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Content Moderation</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-3">
+              <Label>Moderation Enabled</Label>
+              <RadioGroup
+                value={moderationEnabled}
+                onValueChange={(value) =>
+                  form.setValue("MODERATION_ENABLED", value as "true" | "false")
+                }
+                className="grid grid-cols-2 gap-3"
+              >
+                <div className="flex items-center gap-2 rounded-md border p-2">
+                  <RadioGroupItem value="true" id="moderation-enabled-true" />
+                  <Label htmlFor="moderation-enabled-true" className="cursor-pointer">
+                    Enabled
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2 rounded-md border p-2">
+                  <RadioGroupItem value="false" id="moderation-enabled-false" />
+                  <Label htmlFor="moderation-enabled-false" className="cursor-pointer">
+                    Disabled
+                  </Label>
+                </div>
+              </RadioGroup>
+              <p className="text-xs text-muted-foreground">
+                Check messages for toxicity, spam, and rule violations. Flags suspicious content for human review.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="mod-log-channel">Mod-Log Channel ID</Label>
+              <Input
+                id="mod-log-channel"
+                placeholder="123456789012345678"
+                {...form.register("MOD_LOG_CHANNEL_ID")}
+              />
+              <p className="text-xs text-muted-foreground">
+                Channel where flagged messages will be posted for moderation review
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="moderation-sensitivity">Sensitivity Level</Label>
+              <RadioGroup
+                value={form.watch("MODERATION_SENSITIVITY")}
+                onValueChange={(value) =>
+                  form.setValue(
+                    "MODERATION_SENSITIVITY",
+                    value as "low" | "medium" | "high"
+                  )
+                }
+                className="grid grid-cols-3 gap-3"
+              >
+                <div className="flex items-center gap-2 rounded-md border p-2">
+                  <RadioGroupItem value="low" id="mod-sensitivity-low" />
+                  <Label htmlFor="mod-sensitivity-low" className="cursor-pointer">
+                    Low
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2 rounded-md border p-2">
+                  <RadioGroupItem value="medium" id="mod-sensitivity-medium" />
+                  <Label htmlFor="mod-sensitivity-medium" className="cursor-pointer">
+                    Medium
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2 rounded-md border p-2">
+                  <RadioGroupItem value="high" id="mod-sensitivity-high" />
+                  <Label htmlFor="mod-sensitivity-high" className="cursor-pointer">
+                    High
+                  </Label>
+                </div>
+              </RadioGroup>
+              <p className="text-xs text-muted-foreground">
+                Higher sensitivity flags more messages but may increase false positives
               </p>
             </div>
           </CardContent>

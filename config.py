@@ -58,6 +58,16 @@ DIGEST_ENABLED = os.getenv("DIGEST_ENABLED", "false").strip().lower() in {
     "on",
 }
 
+# Moderation settings
+MODERATION_ENABLED = os.getenv("MODERATION_ENABLED", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+MODERATION_SENSITIVITY = os.getenv("MODERATION_SENSITIVITY", "medium").lower()  # low, medium, high
+MOD_LOG_CHANNEL_ID = os.getenv("MOD_LOG_CHANNEL_ID", "")
+
 # Dashboard settings
 DATABASE_PATH = os.getenv("DATABASE_PATH", "sparksage.db")
 DASHBOARD_PORT = int(os.getenv("DASHBOARD_PORT", "8000"))
@@ -141,6 +151,9 @@ def reload_from_db(db_config: dict[str, str]):
         "DIGEST_CHANNEL_ID": str,
         "DIGEST_TIME": str,
         "DIGEST_ENABLED": lambda v: v.strip().lower() in {"1", "true", "yes", "on"},
+        "MODERATION_ENABLED": lambda v: v.strip().lower() in {"1", "true", "yes", "on"},
+        "MODERATION_SENSITIVITY": str,
+        "MOD_LOG_CHANNEL_ID": str,
         "ADMIN_PASSWORD": str,
         "DISCORD_CLIENT_ID": str,
         "DISCORD_CLIENT_SECRET": str,

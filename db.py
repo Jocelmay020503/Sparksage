@@ -74,6 +74,22 @@ async def init_db():
         );
         CREATE INDEX IF NOT EXISTS idx_cmd_perms_guild ON command_permissions(guild_id);
 
+        CREATE TABLE IF NOT EXISTS moderation_logs (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            guild_id   TEXT NOT NULL,
+            channel_id TEXT NOT NULL,
+            user_id    TEXT NOT NULL,
+            message_id TEXT NOT NULL,
+            severity   TEXT NOT NULL,
+            reason     TEXT NOT NULL,
+            provider   TEXT,
+            reviewed   INTEGER NOT NULL DEFAULT 0,
+            created_at TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_mod_guild ON moderation_logs(guild_id);
+        CREATE INDEX IF NOT EXISTS idx_mod_user ON moderation_logs(user_id);
+        CREATE INDEX IF NOT EXISTS idx_mod_severity ON moderation_logs(severity);
+
         INSERT OR IGNORE INTO wizard_state (id) VALUES (1);
         """
     )
@@ -145,6 +161,9 @@ async def sync_env_to_db():
         "DIGEST_CHANNEL_ID": cfg.DIGEST_CHANNEL_ID,
         "DIGEST_TIME": cfg.DIGEST_TIME,
         "DIGEST_ENABLED": "true" if cfg.DIGEST_ENABLED else "false",
+        "MODERATION_ENABLED": "true" if cfg.MODERATION_ENABLED else "false",
+        "MODERATION_SENSITIVITY": cfg.MODERATION_SENSITIVITY,
+        "MOD_LOG_CHANNEL_ID": cfg.MOD_LOG_CHANNEL_ID,
     }
     # Only insert keys that don't already exist in DB (don't overwrite user edits)
     db = await get_db()
@@ -414,6 +433,68 @@ async def delete_session(token: str):
     """Delete a session."""
     db = await get_db()
     await db.execute("DELETE FROM sessions WHERE token = ?", (token,))
+    await db.commit()
+
+
+# --- Moderation helpers ---
+
+
+async def add_moderation_log(
+    guild_id: str,
+    channel_id: str,
+    user_id: str,
+    message_id: str,
+    severity: str,
+    reason: str,
+    provider: str | None = None,
+):
+    """Log a moderation event."""
+    db = await get_db()
+    await db.execute(
+        "INSERT INTO moderation_logs (guild_id, channel_id, user_id, message_id, severity, reason, provider) VALUES (?, ?, ?, ?, ?, ?, ?)",
+        (guild_id, channel_id, user_id, message_id, severity, reason, provider),
+    )
+    await db.commit()
+
+
+async def get_moderation_logs(
+    guild_id: str | None = None,
+    user_id: str | None = None,
+    severity: str | None = None,
+    limit: int = 100,
+) -> list[dict]:
+    """Get moderation logs with optional filters."""
+    db = await get_db()
+    query = "SELECT * FROM moderation_logs WHERE 1=1"
+    params = []
+
+    if guild_id:
+        query += " AND guild_id = ?"
+        params.append(guild_id)
+
+    if user_id:
+        query += " AND user_id = ?"
+        params.append(user_id)
+
+    if severity:
+        query += " AND severity = ?"
+        params.append(severity)
+
+    query += " ORDER BY created_at DESC LIMIT ?"
+    params.append(limit)
+
+    cursor = await db.execute(query, params)
+    rows = await cursor.fetchall()
+    return [dict(row) for row in rows]
+
+
+async def mark_moderation_reviewed(log_id: int):
+    """Mark a moderation log as reviewed."""
+    db = await get_db()
+    await db.execute(
+        "UPDATE moderation_logs SET reviewed = 1 WHERE id = ?",
+        (log_id,),
+    )
     await db.commit()
 
 
