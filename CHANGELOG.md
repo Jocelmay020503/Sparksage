@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.5.3] - 2026-03-03
+
+### Added - Phase 4.4: Custom System Prompts Per Channel
+
+- **Channel Prompt Database Table** (`channel_prompts`) in `db.py`:
+  - Stores per-channel system prompts with guild mapping
+  - Includes created/updated timestamps and guild index
+- **Channel Prompt DB Helpers** in `db.py`:
+  - `get_channel_prompt()` — get prompt for a channel
+  - `set_channel_prompt()` — create/update channel prompt
+  - `remove_channel_prompt()` — reset channel to global prompt
+  - `get_all_channel_prompts()` — list channel prompt mappings
+- **Per-Channel Prompt Runtime Support** in `utils/__init__.py`:
+  - `ask_ai()` now checks channel-specific prompt first
+  - Falls back to global `SYSTEM_PROMPT` when no channel prompt exists
+- **Discord Prompt Management Command** (`cogs/channel_prompt.py`):
+  - Added `/prompt` command with actions: `set`, `reset`, `show`
+  - Uses `Manage Channels` permission check for channel prompt changes
+- **API Endpoints** (`api/routes/channel_prompts.py`):
+  - `GET /api/channel-prompts` and `GET /api/channel-prompts/{channel_id}`
+  - `POST /api/channel-prompts`, `PUT /api/channel-prompts/{channel_id}`, `DELETE /api/channel-prompts/{channel_id}`
+  - Router registered in `api/main.py`
+- **Dashboard Prompt Management**:
+  - New page: `/dashboard/prompts`
+  - Create/remove channel prompts from dashboard UI
+  - Added API client methods in `dashboard/src/lib/api.ts`
+  - Added `Prompts` navigation item in sidebar
+
 ## [0.5.2] - 2026-03-03
 
 ### Added - Phase 4.3: Multi-Language Translation
