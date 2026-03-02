@@ -131,6 +131,9 @@ async def sync_env_to_db():
         "BOT_PREFIX": cfg.BOT_PREFIX,
         "MAX_TOKENS": str(cfg.MAX_TOKENS),
         "SYSTEM_PROMPT": cfg.SYSTEM_PROMPT,
+        "WELCOME_CHANNEL_ID": cfg.WELCOME_CHANNEL_ID,
+        "WELCOME_MESSAGE": cfg.WELCOME_MESSAGE,
+        "WELCOME_ENABLED": "true" if cfg.WELCOME_ENABLED else "false",
     }
     # Only insert keys that don't already exist in DB (don't overwrite user edits)
     db = await get_db()

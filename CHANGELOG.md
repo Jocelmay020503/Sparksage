@@ -1,5 +1,40 @@
 # Changelog
 
+## [0.4.3] - 2026-03-02
+
+### Added - Phase 3.4: New Member Onboarding Flow
+
+- **Onboarding Cog** (`cogs/onboarding.py`) with `on_member_join` listener
+- **Welcome delivery flow**:
+  - posts in configured `WELCOME_CHANNEL_ID` when set
+  - otherwise sends a DM to the new member
+  - falls back to server system channel if DMs are blocked
+- **Structured welcome content** includes:
+  - customizable welcome template (`WELCOME_MESSAGE` with `{user}` and `{server}` placeholders)
+  - server rules summary
+  - key channel links
+  - prompt to ask SparkSage setup questions
+- **Onboarding configuration keys**:
+  - `WELCOME_ENABLED`
+  - `WELCOME_CHANNEL_ID`
+  - `WELCOME_MESSAGE`
+
+### Changed - Phase 3.4
+
+- **`bot.py`** — loads `cogs.onboarding` and enables `members` intent
+- **`config.py`** — adds onboarding config vars and DB reload mapping
+- **`db.py`** — syncs onboarding keys into persistent config table
+- **Dashboard Settings page** — adds onboarding controls (enabled toggle, channel ID, template)
+- **`.env.example`** — documents onboarding environment keys
+
+### Acceptance Criteria ✓ (Phase 3.4)
+
+- ✓ New members receive a welcome message automatically
+- ✓ Message template customizable from dashboard (`WELCOME_MESSAGE`)
+- ✓ Onboarding can be enabled/disabled without restart (`WELCOME_ENABLED`)
+
+---
+
 ## [0.4.2] - 2026-03-02
 
 ### Added - Phase 3.3: FAQ Auto-Detection and Response

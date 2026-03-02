@@ -36,6 +36,17 @@ SYSTEM_PROMPT = os.getenv(
     "You are SparkSage, a helpful and friendly AI assistant in a Discord server. "
     "Be concise, helpful, and engaging.",
 )
+WELCOME_CHANNEL_ID = os.getenv("WELCOME_CHANNEL_ID", "")
+WELCOME_MESSAGE = os.getenv(
+    "WELCOME_MESSAGE",
+    "Welcome {user} to **{server}**! 👋",
+)
+WELCOME_ENABLED = os.getenv("WELCOME_ENABLED", "false").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
 
 # Dashboard settings
 DATABASE_PATH = os.getenv("DATABASE_PATH", "sparksage.db")
@@ -114,6 +125,9 @@ def reload_from_db(db_config: dict[str, str]):
         "BOT_PREFIX": str,
         "MAX_TOKENS": int,
         "SYSTEM_PROMPT": str,
+        "WELCOME_CHANNEL_ID": str,
+        "WELCOME_MESSAGE": str,
+        "WELCOME_ENABLED": lambda v: v.strip().lower() in {"1", "true", "yes", "on"},
         "ADMIN_PASSWORD": str,
         "DISCORD_CLIENT_ID": str,
         "DISCORD_CLIENT_SECRET": str,

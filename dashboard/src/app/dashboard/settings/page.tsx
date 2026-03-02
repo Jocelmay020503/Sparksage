@@ -14,6 +14,7 @@ import { Slider } from "@/components/ui/slider";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
 import { toast } from "sonner";
 
 const settingsSchema = z.object({
@@ -21,6 +22,9 @@ const settingsSchema = z.object({
   BOT_PREFIX: z.string().min(1).max(5),
   MAX_TOKENS: z.number().min(128).max(4096),
   SYSTEM_PROMPT: z.string().min(1),
+  WELCOME_ENABLED: z.enum(["true", "false"]),
+  WELCOME_CHANNEL_ID: z.string(),
+  WELCOME_MESSAGE: z.string().min(1),
   GEMINI_API_KEY: z.string(),
   GROQ_API_KEY: z.string(),
   OPENROUTER_API_KEY: z.string(),
@@ -36,6 +40,9 @@ const DEFAULTS: SettingsForm = {
   MAX_TOKENS: 1024,
   SYSTEM_PROMPT:
     "You are SparkSage, a helpful and friendly AI assistant in a Discord server. Be concise, helpful, and engaging.",
+  WELCOME_ENABLED: "false",
+  WELCOME_CHANNEL_ID: "",
+  WELCOME_MESSAGE: "Welcome {user} to **{server}**! 👋",
   GEMINI_API_KEY: "",
   GROQ_API_KEY: "",
   OPENROUTER_API_KEY: "",
@@ -103,6 +110,7 @@ export default function SettingsPage() {
 
   const maxTokens = form.watch("MAX_TOKENS");
   const systemPrompt = form.watch("SYSTEM_PROMPT");
+  const welcomeEnabled = form.watch("WELCOME_ENABLED");
 
   if (loading) {
     return (
@@ -196,6 +204,56 @@ export default function SettingsPage() {
                 {...form.register("SYSTEM_PROMPT")}
                 rows={4}
               />
+            </div>
+
+            <Separator />
+
+            <div className="space-y-3">
+              <Label>Onboarding Enabled</Label>
+              <RadioGroup
+                value={welcomeEnabled}
+                onValueChange={(value) =>
+                  form.setValue("WELCOME_ENABLED", value as "true" | "false")
+                }
+                className="grid grid-cols-2 gap-3"
+              >
+                <div className="flex items-center gap-2 rounded-md border p-2">
+                  <RadioGroupItem value="true" id="welcome-enabled-true" />
+                  <Label htmlFor="welcome-enabled-true" className="cursor-pointer">
+                    Enabled
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2 rounded-md border p-2">
+                  <RadioGroupItem value="false" id="welcome-enabled-false" />
+                  <Label htmlFor="welcome-enabled-false" className="cursor-pointer">
+                    Disabled
+                  </Label>
+                </div>
+              </RadioGroup>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="welcome-channel">Welcome Channel ID (optional)</Label>
+              <Input
+                id="welcome-channel"
+                placeholder="123456789012345678"
+                {...form.register("WELCOME_CHANNEL_ID")}
+              />
+              <p className="text-xs text-muted-foreground">
+                If empty, welcome is sent via DM. If set, message posts in this channel.
+              </p>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="welcome-message">Welcome Message Template</Label>
+              <Textarea
+                id="welcome-message"
+                rows={3}
+                {...form.register("WELCOME_MESSAGE")}
+              />
+              <p className="text-xs text-muted-foreground">
+                Supports placeholders: {"{user}"}, {"{server}"}
+              </p>
             </div>
           </CardContent>
         </Card>
