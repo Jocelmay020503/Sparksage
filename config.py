@@ -76,6 +76,18 @@ TRANSLATION_LOGGING_ENABLED = os.getenv("TRANSLATION_LOGGING_ENABLED", "false").
     "on",
 }
 
+# Rate limiting settings (sliding window in seconds)
+RATE_LIMIT_ENABLED = os.getenv("RATE_LIMIT_ENABLED", "true").strip().lower() in {
+    "1",
+    "true",
+    "yes",
+    "on",
+}
+RATE_LIMIT_USER_REQUESTS = int(os.getenv("RATE_LIMIT_USER_REQUESTS", "30"))  # requests per minute per user
+RATE_LIMIT_USER_WINDOW = int(os.getenv("RATE_LIMIT_USER_WINDOW", "60"))  # seconds
+RATE_LIMIT_GUILD_REQUESTS = int(os.getenv("RATE_LIMIT_GUILD_REQUESTS", "300"))  # requests per minute per guild
+RATE_LIMIT_GUILD_WINDOW = int(os.getenv("RATE_LIMIT_GUILD_WINDOW", "60"))  # seconds
+
 # Dashboard settings
 DATABASE_PATH = os.getenv("DATABASE_PATH", "sparksage.db")
 DASHBOARD_PORT = int(os.getenv("DASHBOARD_PORT", "8000"))
@@ -163,6 +175,11 @@ def reload_from_db(db_config: dict[str, str]):
         "MODERATION_SENSITIVITY": str,
         "MOD_LOG_CHANNEL_ID": str,
         "TRANSLATION_LOGGING_ENABLED": lambda v: v.strip().lower() in {"1", "true", "yes", "on"},
+        "RATE_LIMIT_ENABLED": lambda v: v.strip().lower() in {"1", "true", "yes", "on"},
+        "RATE_LIMIT_USER_REQUESTS": int,
+        "RATE_LIMIT_USER_WINDOW": int,
+        "RATE_LIMIT_GUILD_REQUESTS": int,
+        "RATE_LIMIT_GUILD_WINDOW": int,
         "ADMIN_PASSWORD": str,
         "DISCORD_CLIENT_ID": str,
         "DISCORD_CLIENT_SECRET": str,

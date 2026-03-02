@@ -103,6 +103,49 @@ export interface TestProviderResult {
   latency_ms?: number;
 }
 
+export interface AnalyticsSummary {
+  total_events: number;
+  total_tokens: number;
+  avg_latency_ms: number;
+  unique_providers: number;
+}
+
+export interface AnalyticsHistoryItem {
+  date: string;
+  count: number;
+  tokens: number;
+  avg_latency: number;
+}
+
+export interface TopChannelItem {
+  channel_id: string;
+  count: number;
+  tokens: number;
+}
+
+export interface TopUserItem {
+  user_id: string;
+  count: number;
+  tokens: number;
+}
+
+export interface QuotaStatsResponse {
+  total_violations: number;
+  user_limit_violations: number;
+  guild_limit_violations: number;
+  unique_users_affected: number;
+  unique_guilds_affected: number;
+}
+
+export interface QuotaViolationItem {
+  id: number;
+  user_id: string;
+  guild_id: string;
+  violation_type: string;
+  limit_reset_at: string;
+  created_at: string;
+}
+
 export const api = {
   // Auth
   login: (password: string) =>
@@ -327,4 +370,33 @@ export const api = {
       body: JSON.stringify({ config: data }),
       token,
     }),
+
+  // Analytics
+  getAnalyticsSummary: (token: string, days: number = 7) =>
+    apiFetch<AnalyticsSummary>(`/api/analytics/summary?days=${days}`, { token }),
+
+  getAnalyticsHistory: (token: string, days: number = 7, eventType?: string) => {
+    const suffix = eventType ? `&event_type=${eventType}` : "";
+    return apiFetch<AnalyticsHistoryItem[]>(
+      `/api/analytics/history?days=${days}${suffix}`,
+      { token }
+    );
+  },
+
+  getTopChannels: (token: string, limit: number = 10) =>
+    apiFetch<TopChannelItem[]>(`/api/analytics/top-channels?limit=${limit}`, { token }),
+
+  getTopUsers: (token: string, limit: number = 10) =>
+    apiFetch<TopUserItem[]>(`/api/analytics/top-users?limit=${limit}`, { token }),
+
+  // Quota
+  getQuotaStatus: (token: string, hours: number = 24) =>
+    apiFetch<QuotaStatsResponse>(`/api/quota/status?hours=${hours}`, { token }),
+
+  getQuotaViolations: (token: string, hours: number = 24, userId?: string, guildId?: string) => {
+    let suffix = `?hours=${hours}`;
+    if (userId) suffix += `&user_id=${userId}`;
+    if (guildId) suffix += `&guild_id=${guildId}`;
+    return apiFetch<QuotaViolationItem[]>(`/api/quota/violations${suffix}`, { token });
+  },
 };

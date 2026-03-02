@@ -15,6 +15,8 @@ import {
   Route,
   Wand2,
   LogOut,
+  BarChart3,
+  AlertCircle,
 } from "lucide-react";
 import {
   Sidebar,
@@ -39,6 +41,8 @@ const NAV_ITEMS = [
   { title: "Permissions", href: "/dashboard/permissions", icon: Shield },
   { title: "Prompts", href: "/dashboard/prompts", icon: Sparkles },
   { title: "Channel Providers", href: "/dashboard/channel-providers", icon: Route },
+  { title: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
+  { title: "Quotas", href: "/dashboard/quota", icon: AlertCircle },
 ];
 
 export function AppSidebar() {

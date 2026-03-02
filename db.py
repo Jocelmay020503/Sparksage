@@ -122,6 +122,18 @@ async def init_db():
         );
         CREATE INDEX IF NOT EXISTS idx_channel_providers_guild ON channel_providers(guild_id);
 
+        CREATE TABLE IF NOT EXISTS quota_usage (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            user_id      TEXT,
+            guild_id     TEXT,
+            violation_type TEXT NOT NULL,  -- 'user_limit', 'guild_limit'
+            limit_reset_at TEXT NOT NULL,
+            created_at   TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_quota_user ON quota_usage(user_id);
+        CREATE INDEX IF NOT EXISTS idx_quota_guild ON quota_usage(guild_id);
+        CREATE INDEX IF NOT EXISTS idx_quota_type ON quota_usage(violation_type);
+
         INSERT OR IGNORE INTO wizard_state (id) VALUES (1);
         """
     )
@@ -693,6 +705,103 @@ async def get_all_channel_providers(guild_id: str | None = None) -> list[dict]:
         )
     rows = await cursor.fetchall()
     return [dict(row) for row in rows]
+
+
+# --- Quota usage helpers ---
+
+
+async def record_quota_violation(
+    user_id: str | None = None,
+    guild_id: str | None = None,
+    violation_type: str = "user_limit",
+    limit_reset_at: str | None = None,
+):
+    """Record a rate limit violation."""
+    db = await get_db()
+    if limit_reset_at is None:
+        limit_reset_at = ""
+    
+    await db.execute(
+        """
+        INSERT INTO quota_usage (user_id, guild_id, violation_type, limit_reset_at)
+        VALUES (?, ?, ?, ?)
+        """,
+        (user_id, guild_id, violation_type, limit_reset_at),
+    )
+    await db.commit()
+
+
+async def get_quota_violations(
+    hours: int = 24,
+    user_id: str | None = None,
+    guild_id: str | None = None,
+) -> list[dict]:
+    """Get quota violations in the past N hours."""
+    db = await get_db()
+    
+    where_clause = "WHERE datetime(created_at) > datetime('now', '-' || ? || ' hours')"
+    params = [hours]
+    
+    if user_id:
+        where_clause += " AND user_id = ?"
+        params.append(user_id)
+    if guild_id:
+        where_clause += " AND guild_id = ?"
+        params.append(guild_id)
+    
+    cursor = await db.execute(
+        f"""
+        SELECT * FROM quota_usage
+        {where_clause}
+        ORDER BY created_at DESC
+        """,
+        params,
+    )
+    rows = await cursor.fetchall()
+    return [dict(row) for row in rows]
+
+
+async def get_quota_stats(hours: int = 24) -> dict:
+    """Get overall quota statistics for the past N hours."""
+    db = await get_db()
+    
+    where_clause = "WHERE datetime(created_at) > datetime('now', '-' || ? || ' hours')"
+    params = [hours]
+    
+    # Total violations
+    cursor = await db.execute(
+        f"SELECT COUNT(*) as total FROM quota_usage {where_clause}",
+        params,
+    )
+    total = (await cursor.fetchone())["total"] or 0
+    
+    # Violations by type
+    cursor = await db.execute(
+        f"SELECT violation_type, COUNT(*) as count FROM quota_usage {where_clause} GROUP BY violation_type",
+        params,
+    )
+    violations_by_type = {row["violation_type"]: row["count"] for row in await cursor.fetchall()}
+    
+    # Unique users affected
+    cursor = await db.execute(
+        f"SELECT COUNT(DISTINCT user_id) as count FROM quota_usage {where_clause} AND user_id IS NOT NULL",
+        params,
+    )
+    users_limited = (await cursor.fetchone())["count"] or 0
+    
+    # Unique guilds affected
+    cursor = await db.execute(
+        f"SELECT COUNT(DISTINCT guild_id) as count FROM quota_usage {where_clause} AND guild_id IS NOT NULL",
+        params,
+    )
+    guilds_limited = (await cursor.fetchone())["count"] or 0
+    
+    return {
+        "total_violations": total,
+        "violations_by_type": violations_by_type,
+        "users_affected": users_limited,
+        "guilds_affected": guilds_limited,
+    }
 
 
 async def close_db():
