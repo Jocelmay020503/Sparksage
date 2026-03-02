@@ -1,5 +1,60 @@
 # Changelog
 
+## [0.4.0] - 2026-03-02
+
+### Added - Phase 3.1: Cog-Based Modular Command System
+
+- **Cog Architecture** — Refactored all slash commands from `bot.py` into separate, reusable cog files
+- **Cogs Added:**
+  - `cogs/general.py` — Core commands: `/ask`, `/clear`, `/provider`
+  - `cogs/summarize.py` — Conversation summarization: `/summarize`
+  - (Ready for future cogs: `code_review.py`, `faq.py`, `onboarding.py`, `permissions.py`)
+- **Shared Utilities** — Extracted common functions (`get_history()`, `ask_ai()`) to `utils/__init__.py` for code reuse across cogs
+- **Dynamic Cog Loading** — Cogs loaded at bot startup in `on_ready()` event; new cogs can be added to `cogs/` directory without modifying core bot logic
+
+### Changed - Phase 3.1
+
+- **`bot.py`** — Simplified to focus on event handlers (`on_ready`, `on_message`) and dynamic cog loading
+  - Removed inline slash command definitions (moved to cogs)
+  - Imports shared utilities from `utils` module
+  - Cleaner 106-line file vs. previous 172-line file with duplicate logic
+- **`utils/__init__.py`** — New module containing `ask_ai()`, `get_history()`, `MAX_HISTORY` constant
+- **`cogs/__init__.py`** — Documentation of modular cog system and available/planned cogs
+
+### Architecture
+
+```
+Before (v0.3):
+  bot.py — contains 50+ lines of command definitions
+  Commands duplicated across handlers and cogs
+
+After (v0.4):
+  bot.py — 5 lines for cog loading
+  cogs/general.py — clean, isolated commands
+  cogs/summarize.py — clean, isolated commands
+  utils/__init__.py — shared utilities
+```
+
+### Files Modified
+
+| File | Change | Impact |
+|------|--------|--------|
+| `bot.py` | Simplified cog loader | -66 LOC, cleaner architecture |
+| `cogs/__init__.py` | **New** | Cog system documentation |
+| `cogs/general.py` | **New** | `/ask`, `/clear`, `/provider` commands |
+| `cogs/summarize.py` | **New** | `/summarize` command |
+| `utils/__init__.py` | **New** | Shared `ask_ai()`, `get_history()` |
+
+### Acceptance Criteria ✓
+
+- ✓ All existing commands work identically after refactoring
+- ✓ New cogs can be added by creating a file in `cogs/` and loading it
+- ✓ `bot.py` is simplified to just event handlers and cog loading
+- ✓ Code duplication eliminated via `utils/` module
+- ✓ Ready for Phase 3.2–3.5 (code review, FAQ, onboarding, permissions)
+
+---
+
 ## [0.3.0] - 2026-02-19
 
 ### Added
