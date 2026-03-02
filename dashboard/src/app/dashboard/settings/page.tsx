@@ -31,6 +31,7 @@ const settingsSchema = z.object({
   MODERATION_ENABLED: z.enum(["true", "false"]),
   MODERATION_SENSITIVITY: z.enum(["low", "medium", "high"]),
   MOD_LOG_CHANNEL_ID: z.string(),
+  TRANSLATION_LOGGING_ENABLED: z.enum(["true", "false"]),
   GEMINI_API_KEY: z.string(),
   GROQ_API_KEY: z.string(),
   OPENROUTER_API_KEY: z.string(),
@@ -55,6 +56,7 @@ const DEFAULTS: SettingsForm = {
   MODERATION_ENABLED: "false",
   MODERATION_SENSITIVITY: "medium",
   MOD_LOG_CHANNEL_ID: "",
+  TRANSLATION_LOGGING_ENABLED: "false",
   GEMINI_API_KEY: "",
   GROQ_API_KEY: "",
   OPENROUTER_API_KEY: "",
@@ -125,6 +127,7 @@ export default function SettingsPage() {
   const welcomeEnabled = form.watch("WELCOME_ENABLED");
   const digestEnabled = form.watch("DIGEST_ENABLED");
   const moderationEnabled = form.watch("MODERATION_ENABLED");
+  const translationLoggingEnabled = form.watch("TRANSLATION_LOGGING_ENABLED");
 
   if (loading) {
     return (
@@ -411,6 +414,41 @@ export default function SettingsPage() {
               </RadioGroup>
               <p className="text-xs text-muted-foreground">
                 Higher sensitivity flags more messages but may increase false positives
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Translation */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Translation</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-3">
+              <Label>Translation Logging</Label>
+              <RadioGroup
+                value={translationLoggingEnabled}
+                onValueChange={(value) =>
+                  form.setValue("TRANSLATION_LOGGING_ENABLED", value as "true" | "false")
+                }
+                className="grid grid-cols-2 gap-3"
+              >
+                <div className="flex items-center gap-2 rounded-md border p-2">
+                  <RadioGroupItem value="true" id="translation-logging-true" />
+                  <Label htmlFor="translation-logging-true" className="cursor-pointer">
+                    Enabled
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2 rounded-md border p-2">
+                  <RadioGroupItem value="false" id="translation-logging-false" />
+                  <Label htmlFor="translation-logging-false" className="cursor-pointer">
+                    Disabled
+                  </Label>
+                </div>
+              </RadioGroup>
+              <p className="text-xs text-muted-foreground">
+                Record all translation requests to track language usage patterns across your server
               </p>
             </div>
           </CardContent>

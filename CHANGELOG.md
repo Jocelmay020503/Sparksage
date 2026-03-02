@@ -1,5 +1,33 @@
 # Changelog
 
+## [0.5.2] - 2026-03-03
+
+### Added - Phase 4.3: Multi-Language Translation
+
+- **Translation Cog** (`cogs/translate.py`) with AI-powered language translation
+- **Translate Slash Command** (`/translate`):
+  - Translates text to target language using AI provider
+  - Auto-detects source language using language detection model
+  - Supports 25 common languages (Spanish, French, German, Chinese, Japanese, Arabic, etc.)
+  - Language autocomplete in Discord UI
+  - Returns bilingual formatted output with source and target language labels
+  - Displays AI provider attribution
+- **Translation Logging**:
+  - Optional translation event tracking to database
+  - `TRANSLATION_LOGGING_ENABLED` config flag (default: false)
+- **Translation Database Table** (`translation_logs`):
+  - Records translation requests: guild, channel, user, source/target languages, provider, timestamp
+  - Indexes on guild_id, user_id, and language pair combinations for efficient queries
+- **Translation Helper Functions** in `db.py`:
+  - `add_translation_log()` — record a translation event
+  - `get_translation_logs()` — query translation history with optional filters (guild, user, source language, target language)
+- **Translation Configuration** in `config.py`:
+  - `TRANSLATION_LOGGING_ENABLED` — enable/disable translation logging (default: false)
+- **Dashboard Controls**:
+  - Translation section in settings page
+  - Toggle for translation logging enable/disable
+  - Part of unified settings management alongside other Phase 4 features
+
 ## [0.5.1] - 2026-03-02
 
 ### Added - Phase 4.2: Content Moderation Pipeline
