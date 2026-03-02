@@ -1,5 +1,73 @@
 # Changelog
 
+## [0.6.0] - 2026-03-02
+
+### Added - Phase 5.1: Analytics and Usage Tracking
+
+- **Analytics REST API Endpoints** (`api/routes/analytics.py`):
+  - `GET /api/analytics/summary?days=N` — aggregated metrics (events, tokens, latency, providers)
+  - `GET /api/analytics/history?days=N&event_type=...` — time-series data with daily aggregation
+  - `GET /api/analytics/top-channels?limit=10` — channel rankings by usage
+  - `GET /api/analytics/top-users?limit=10` — user rankings by usage
+  - JWT-protected endpoints for authorized access
+- **Analytics Dashboard Page** (`dashboard/src/app/dashboard/analytics/page.tsx`):
+  - Interactive data visualization using Recharts
+  - Summary cards: total events, tokens, avg latency, active providers
+  - Daily activity line chart with events and latency trends
+  - Top channels/users bar charts with token usage
+  - Time range selector (7/14/30/60/90 days)
+  - Responsive tables for top channels and top users
+- **Analytics API Client Methods** (`dashboard/src/lib/api.ts`):
+  - Added TypeScript types: `AnalyticsSummary`, `AnalyticsHistoryItem`, `TopChannelItem`, `TopUserItem`
+  - Added methods: `getAnalyticsSummary()`, `getAnalyticsHistory()`, `getTopChannels()`, `getTopUsers()`
+- **Sidebar Navigation**:
+  - Added Analytics menu item with BarChart3 icon
+
+### Added - Phase 5.2: Rate Limiting and Quota Management
+
+- **Rate Limiter Utility** (`utils/rate_limiter.py`):
+  - `RateLimiter` class with sliding window algorithm
+  - Per-user rate limiting (default: 30 requests per 60 seconds)
+  - Per-guild rate limiting (default: 300 requests per 60 seconds)
+  - Methods: `check_user_limit()`, `check_guild_limit()`, `check_both_limits()`
+  - Admin utilities: `get_user_status()`, `get_guild_status()`, `reset_user()`, `reset_all()`
+  - In-memory timestamp tracking with automatic cleanup
+- **Rate Limiting Configuration** (`config.py`):
+  - `RATE_LIMIT_ENABLED` — toggle rate limiting on/off (default: true)
+  - `RATE_LIMIT_USER_REQUESTS` — max requests per user per window (default: 30)
+  - `RATE_LIMIT_USER_WINDOW` — user rate limit window in seconds (default: 60)
+  - `RATE_LIMIT_GUILD_REQUESTS` — max requests per guild per window (default: 300)
+  - `RATE_LIMIT_GUILD_WINDOW` — guild rate limit window in seconds (default: 60)
+- **Quota Tracking Database** (`db.py`):
+  - New `quota_usage` table with fields: user_id, guild_id, violation_type, limit_reset_at
+  - Indexes on user_id, guild_id, and created_at for fast queries
+  - `record_quota_violation()` — log rate limit violations
+  - `get_quota_violations()` — query violations with time/user/guild filters
+  - `get_quota_stats()` — aggregated violation statistics
+- **Rate Limiting Integration** (`utils/__init__.py`):
+  - `get_rate_limiter()` — singleton accessor for RateLimiter
+  - `ask_ai()` now checks rate limits before processing requests
+  - Records violations to database when limits exceeded
+  - Returns user-friendly error messages: "⏱️ You're using SparkSage too frequently. Please wait X second(s)..."
+  - Both user and guild limits enforced independently
+- **Quota REST API Endpoints** (`api/routes/quota.py`):
+  - `GET /api/quota/status?hours=24` — aggregated violation statistics
+  - `GET /api/quota/violations?hours=24&user_id=...&guild_id=...` — detailed violation history
+  - JWT-protected with optional filtering
+- **Quota Dashboard Page** (`dashboard/src/app/dashboard/quota/page.tsx`):
+  - Summary cards: total violations, user/guild limit violations, affected users/guilds
+  - Rate limiting configuration display (30 req/min user, 300 req/min guild)
+  - Recent violations table with type badges, timestamps, and reset times
+  - Time range selector (1h/6h/24h/72h)
+  - Information card explaining rate limiting system
+- **Quota API Client Methods** (`dashboard/src/lib/api.ts`):
+  - Added TypeScript types: `QuotaStatsResponse`, `QuotaViolationItem`
+  - Added methods: `getQuotaStatus()`, `getQuotaViolations()`
+- **Sidebar Navigation**:
+  - Added Quotas menu item with AlertCircle icon
+- **API Router Registration** (`api/main.py`):
+  - Registered analytics and quota routers with prefixes
+
 ## [0.5.4] - 2026-03-03
 
 ### Added - Phase 4.5: Per-Channel Provider Override
