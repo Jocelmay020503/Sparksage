@@ -90,6 +90,19 @@ export interface ChannelProviderItem {
   updated_at: string;
 }
 
+export interface PluginItem {
+  name: string;
+  version: string;
+  author: string;
+  description: string;
+  installed: boolean;
+  enabled: boolean;
+}
+
+export interface PluginsResponse {
+  plugins: PluginItem[];
+}
+
 export interface BotStatus {
   online: boolean;
   latency: number | null;
@@ -316,6 +329,37 @@ export const api = {
         token,
       }
     ),
+
+  // Plugins
+  getPlugins: (token: string) =>
+    apiFetch<PluginsResponse>("/api/plugins", { token }),
+
+  installPlugin: (token: string, name: string) =>
+    apiFetch<{ status: string; name: string }>("/api/plugins/install", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+      token,
+    }),
+
+  enablePlugin: (token: string, name: string) =>
+    apiFetch<{ status: string; name: string; message: string }>("/api/plugins/enable", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+      token,
+    }),
+
+  disablePlugin: (token: string, name: string) =>
+    apiFetch<{ status: string; name: string; message: string }>("/api/plugins/disable", {
+      method: "POST",
+      body: JSON.stringify({ name }),
+      token,
+    }),
+
+  uninstallPlugin: (token: string, name: string) =>
+    apiFetch<{ status: string; name: string; message: string }>(`/api/plugins/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+      token,
+    }),
 
   // Wizard
   getWizardStatus: (token: string) =>

@@ -122,6 +122,16 @@ async def init_db():
         );
         CREATE INDEX IF NOT EXISTS idx_channel_providers_guild ON channel_providers(guild_id);
 
+        CREATE TABLE IF NOT EXISTS plugins (
+            name         TEXT PRIMARY KEY,
+            version      TEXT NOT NULL,
+            author       TEXT NOT NULL,
+            description  TEXT NOT NULL,
+            enabled      INTEGER NOT NULL DEFAULT 0,
+            installed_at TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at   TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+
         INSERT OR IGNORE INTO wizard_state (id) VALUES (1);
         """
     )
@@ -691,6 +701,81 @@ async def get_all_channel_providers(guild_id: str | None = None) -> list[dict]:
         cursor = await db.execute(
             "SELECT * FROM channel_providers ORDER BY created_at DESC"
         )
+    rows = await cursor.fetchall()
+    return [dict(row) for row in rows]
+
+
+# --- Plugin helpers ---
+
+
+async def upsert_plugin(name: str, version: str, author: str, description: str, enabled: bool = False):
+    """Insert or update plugin metadata."""
+    db = await get_db()
+    await db.execute(
+        """INSERT INTO plugins (name, version, author, description, enabled, updated_at)
+           VALUES (?, ?, ?, ?, ?, datetime('now'))
+           ON CONFLICT(name) DO UPDATE SET
+               version = excluded.version,
+               author = excluded.author,
+               description = excluded.description,
+               enabled = excluded.enabled,
+               updated_at = datetime('now')""",
+        (name, version, author, description, int(enabled)),
+    )
+    await db.commit()
+
+
+async def set_plugin_enabled(name: str, enabled: bool) -> bool:
+    """Enable or disable a plugin. Returns True if plugin exists."""
+    db = await get_db()
+    cursor = await db.execute(
+        """UPDATE plugins
+           SET enabled = ?, updated_at = datetime('now')
+           WHERE name = ?""",
+        (int(enabled), name),
+    )
+    await db.commit()
+    return cursor.rowcount > 0
+
+
+async def delete_plugin(name: str) -> bool:
+    """Delete installed plugin record."""
+    db = await get_db()
+    cursor = await db.execute(
+        "DELETE FROM plugins WHERE name = ?",
+        (name,),
+    )
+    await db.commit()
+    return cursor.rowcount > 0
+
+
+async def get_plugin(name: str) -> dict | None:
+    """Get installed plugin by name."""
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT * FROM plugins WHERE name = ?",
+        (name,),
+    )
+    row = await cursor.fetchone()
+    return dict(row) if row else None
+
+
+async def list_plugins() -> list[dict]:
+    """List all installed plugins."""
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT * FROM plugins ORDER BY name ASC"
+    )
+    rows = await cursor.fetchall()
+    return [dict(row) for row in rows]
+
+
+async def list_enabled_plugins() -> list[dict]:
+    """List enabled plugins."""
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT * FROM plugins WHERE enabled = 1 ORDER BY name ASC"
+    )
     rows = await cursor.fetchall()
     return [dict(row) for row in rows]
 

@@ -49,9 +49,24 @@ async def on_ready():
         await bot.load_extension("cogs.translate")
         await bot.load_extension("cogs.channel_prompt")
         await bot.load_extension("cogs.channel_provider")
-        print("Loaded cogs: general, summarize, code_review, faq, onboarding, permissions, digest, moderation, translate, channel_prompt, channel_provider")
+        await bot.load_extension("cogs.plugin_manager")
+        print("Loaded cogs: general, summarize, code_review, faq, onboarding, permissions, digest, moderation, translate, channel_prompt, channel_provider, plugin_manager")
     except Exception as e:
         print(f"Failed to load cogs: {e}")
+
+    # Load enabled community plugins
+    try:
+        enabled_plugins = await database.list_enabled_plugins()
+        for plugin in enabled_plugins:
+            plugin_name = plugin["name"]
+            extension_name = f"plugins.{plugin_name}.cog"
+            try:
+                await bot.load_extension(extension_name)
+                print(f"Loaded plugin: {plugin_name}")
+            except Exception as plugin_error:
+                print(f"Failed to load plugin {plugin_name}: {plugin_error}")
+    except Exception as e:
+        print(f"Failed to load enabled plugins: {e}")
 
     available = providers.get_available_providers()
     primary = config.AI_PROVIDER
