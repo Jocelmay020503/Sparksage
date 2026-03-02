@@ -302,7 +302,10 @@ export default function CostsDashboard() {
                     cx="50%"
                     cy="50%"
                     outerRadius={100}
-                    label={(entry) => `${entry.provider}: ${formatCost(entry.total_cost)}`}
+                    label={(entry) => {
+                      const data = entry as unknown as CostByProvider;
+                      return `${data.provider}: ${formatCost(data.total_cost)}`;
+                    }}
                   >
                     {providers.map((_, index) => (
                       <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
