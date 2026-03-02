@@ -10,6 +10,7 @@ from utils import ask_ai, get_history
 
 intents = discord.Intents.default()
 intents.message_content = True
+intents.members = True
 
 bot = commands.Bot(command_prefix=config.BOT_PREFIX, intents=intents)
 
@@ -41,7 +42,8 @@ async def on_ready():
         await bot.load_extension("cogs.summarize")
         await bot.load_extension("cogs.code_review")
         await bot.load_extension("cogs.faq")
-        print("Loaded cogs: general, summarize, code_review, faq")
+        await bot.load_extension("cogs.onboarding")
+        print("Loaded cogs: general, summarize, code_review, faq, onboarding")
     except Exception as e:
         print(f"Failed to load cogs: {e}")
 
