@@ -1,5 +1,35 @@
 # Changelog
 
+## [0.4.1] - 2026-03-02
+
+### Added - Phase 3.2: Code Review with Syntax Highlighting
+
+- **Code Review Cog** (`cogs/code_review.py`) — `/review` slash command for analyzing code
+  - `code` parameter (required) — the code snippet to review
+  - `language` parameter (optional) — programming language hint; auto-detects if omitted
+- **Language Auto-Detection** — Heuristic-based detection for Python, JavaScript, Java, Rust, Swift, C, etc.
+- **Specialized Review Prompt** — Senior code reviewer persona that analyzes:
+  - Bugs and potential errors (logical flaws, null pointer risks, etc.)
+  - Style and best practices (naming, organization, language standards)
+  - Performance improvements (algorithmic efficiency, optimization opportunities)
+  - Security concerns (input validation, injection risks, hardcoded secrets)
+- **Syntax Highlighting** — Responses formatted with markdown code blocks and language markers (```python, ```javascript, etc.)
+- **Discord Integration** — Full integration with existing ask_ai() and provider system; response footer shows which AI provider performed the review
+
+### Changed - Phase 3.2
+
+- **`bot.py`** — Updated cog loading in `on_ready()` to include `cogs.code_review`
+
+### Acceptance Criteria ✓ (Phase 3.2)
+
+- ✓ Users can paste code and get structured feedback via `/review`
+- ✓ Response uses proper syntax highlighting via Discord markdown
+- ✓ Language auto-detection works; optional language parameter provides override
+- ✓ Code integrates with multi-provider fallback and conversation history
+- ✓ All reviews attributed to AI provider in footer
+
+---
+
 ## [0.4.0] - 2026-03-02
 
 ### Added - Phase 3.1: Cog-Based Modular Command System
@@ -8,7 +38,7 @@
 - **Cogs Added:**
   - `cogs/general.py` — Core commands: `/ask`, `/clear`, `/provider`
   - `cogs/summarize.py` — Conversation summarization: `/summarize`
-  - (Ready for future cogs: `code_review.py`, `faq.py`, `onboarding.py`, `permissions.py`)
+  - (Ready for future cogs: `faq.py`, `onboarding.py`, `permissions.py`)
 - **Shared Utilities** — Extracted common functions (`get_history()`, `ask_ai()`) to `utils/__init__.py` for code reuse across cogs
 - **Dynamic Cog Loading** — Cogs loaded at bot startup in `on_ready()` event; new cogs can be added to `cogs/` directory without modifying core bot logic
 
