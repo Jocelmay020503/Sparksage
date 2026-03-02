@@ -86,13 +86,16 @@ def test_provider(name: str) -> dict:
         return {"success": False, "latency_ms": latency, "error": str(e)}
 
 
-def chat(messages: list[dict], system_prompt: str, preferred_provider: str | None = None) -> tuple[str, str]:
-    """Send messages to AI and return (response_text, provider_name).
+def chat(messages: list[dict], system_prompt: str, preferred_provider: str | None = None) -> tuple[str, str, int]:
+    """Send messages to AI and return (response_text, provider_name, latency_ms).
 
     Tries the primary provider first, then falls back through free providers.
     Raises RuntimeError if all providers fail.
     """
+    import time
     errors = []
+    
+    overall_start = time.time()
 
     fallback_order = FALLBACK_ORDER
     if preferred_provider and preferred_provider in config.PROVIDERS:
@@ -105,6 +108,7 @@ def chat(messages: list[dict], system_prompt: str, preferred_provider: str | Non
 
         provider = config.PROVIDERS[provider_name]
         try:
+            start = time.time()
             response = client.chat.completions.create(
                 model=provider["model"],
                 max_tokens=config.MAX_TOKENS,
@@ -113,8 +117,9 @@ def chat(messages: list[dict], system_prompt: str, preferred_provider: str | Non
                     *messages,
                 ],
             )
+            latency_ms = int((time.time() - start) * 1000)
             text = response.choices[0].message.content
-            return text, provider_name
+            return text, provider_name, latency_ms
 
         except Exception as e:
             errors.append(f"{provider['name']}: {e}")
