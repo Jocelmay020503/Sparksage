@@ -1,5 +1,59 @@
 # Changelog
 
+## [0.5.1] - 2026-03-02
+
+### Added - Phase 4.2: Content Moderation Pipeline
+
+- **Moderation Cog** (`cogs/moderation.py`) with AI-powered content checking
+- **Real-Time Message Flagging** via `on_message` listener:
+  - Checks messages for toxicity, hate speech, spam, and rule violations
+  - Uses AI to rate messages and provide structured JSON response
+  - Never auto-deletes; always flags for human review
+  - Skips bot messages and DM channels
+  - Configurable skip list (can exclude certain channels)
+- **Moderation Log Channel** posts flagged messages with:
+  - Rich embedded message with user, channel, content, reason
+  - Severity badge (Low/Medium/High) with color coding
+  - AI provider attribution
+  - Direct link to original message
+  - Action buttons for moderator response (future expansion)
+- **Moderation Database Table** (`moderation_logs`):
+  - Tracks all flagged messages with guild, channel, user, severity, reason
+  - `reviewed` flag for tracking moderation actions
+  - Indexes on guild_id, user_id, and severity for fast queries
+- **Moderation Helper Functions** in `db.py`:
+  - `add_moderation_log()` — record flagged message
+  - `get_moderation_logs()` — query with optional filters (guild, user, severity)
+  - `mark_moderation_reviewed()` — mark log as reviewed
+- **Moderation Configuration** in `config.py`:
+  - `MODERATION_ENABLED` — enable/disable moderation (default: false)
+  - `MOD_LOG_CHANNEL_ID` — channel for posting flagged messages
+  - `MODERATION_SENSITIVITY` — low/medium/high (influences AI prompt, default: medium)
+- **Dashboard Moderation Controls** in `/dashboard/settings`:
+  - Enable/disable toggle for moderation
+  - Mod-log channel ID input field
+  - Sensitivity selector (Low/Medium/High) to adjust detection strictness
+  - Descriptive help text explaining each setting
+
+### Changed - Phase 4.2
+
+- **`bot.py`** — loads `cogs.moderation` during startup
+- **`config.py`** — adds `MODERATION_ENABLED`, `MODERATION_SENSITIVITY`, `MOD_LOG_CHANNEL_ID` with reload support
+- **`db.py`** — includes moderation_logs table creation and sync functions
+- **`dashboard/src/app/dashboard/settings/page.tsx`** — adds Content Moderation section with controls
+
+### Acceptance Criteria ✓ (Phase 4.2)
+
+- ✓ Messages checked against moderation prompt in real-time
+- ✓ AI returns structured JSON with flagged/reason/severity
+- ✓ Flagged messages posted to mod-log channel as rich embeds
+- ✓ Never auto-deletes; always flags for human review
+- ✓ Moderation events tracked in database
+- ✓ Dashboard controls for all moderation settings
+- ✓ Configurability: enable/disable, channel, sensitivity level
+
+---
+
 ## [0.5.0] - 2026-03-02
 
 ### Added - Phase 4.1: Daily Digest Scheduler
