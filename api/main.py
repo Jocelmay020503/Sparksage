@@ -1,3 +1,4 @@
+import os
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -13,15 +14,23 @@ async def lifespan(app: FastAPI):
     await db.close_db()
 
 
+def _get_cors_origins() -> list[str]:
+    """Build CORS allowlist from defaults plus optional env override."""
+    origins = ["http://localhost:3000", "http://127.0.0.1:3000"]
+    raw = os.getenv("CORS_ALLOW_ORIGINS", "")
+    extra = [origin.strip() for origin in raw.split(",") if origin.strip()]
+    for origin in extra:
+        if origin not in origins:
+            origins.append(origin)
+    return origins
+
+
 def create_app() -> FastAPI:
     app = FastAPI(title="SparkSage API", version="1.0.0", lifespan=lifespan)
 
     app.add_middleware(
         CORSMiddleware,
-        allow_origins=[
-            "http://localhost:3000",
-            "http://127.0.0.1:3000",
-        ],
+        allow_origins=_get_cors_origins(),
         allow_credentials=True,
         allow_methods=["*"],
         allow_headers=["*"],
