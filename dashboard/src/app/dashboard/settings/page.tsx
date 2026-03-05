@@ -32,6 +32,8 @@ const settingsSchema = z.object({
   MODERATION_SENSITIVITY: z.enum(["low", "medium", "high"]),
   MOD_LOG_CHANNEL_ID: z.string(),
   TRANSLATION_LOGGING_ENABLED: z.enum(["true", "false"]),
+  RATE_LIMIT_USER: z.number().min(1).max(1000),
+  RATE_LIMIT_GUILD: z.number().min(1).max(5000),
   GEMINI_API_KEY: z.string(),
   GROQ_API_KEY: z.string(),
   OPENROUTER_API_KEY: z.string(),
@@ -57,6 +59,8 @@ const DEFAULTS: SettingsForm = {
   MODERATION_SENSITIVITY: "medium",
   MOD_LOG_CHANNEL_ID: "",
   TRANSLATION_LOGGING_ENABLED: "false",
+  RATE_LIMIT_USER: 20,
+  RATE_LIMIT_GUILD: 120,
   GEMINI_API_KEY: "",
   GROQ_API_KEY: "",
   OPENROUTER_API_KEY: "",
@@ -84,7 +88,7 @@ export default function SettingsPage() {
         const mapped: Partial<SettingsForm> = {};
         for (const key of Object.keys(DEFAULTS) as (keyof SettingsForm)[]) {
           if (config[key] !== undefined) {
-            if (key === "MAX_TOKENS") {
+            if (key === "MAX_TOKENS" || key === "RATE_LIMIT_USER" || key === "RATE_LIMIT_GUILD") {
               mapped[key] = Number(config[key]);
             } else {
               (mapped as Record<string, string>)[key] = config[key];
@@ -128,6 +132,8 @@ export default function SettingsPage() {
   const digestEnabled = form.watch("DIGEST_ENABLED");
   const moderationEnabled = form.watch("MODERATION_ENABLED");
   const translationLoggingEnabled = form.watch("TRANSLATION_LOGGING_ENABLED");
+  const rateLimitUser = form.watch("RATE_LIMIT_USER");
+  const rateLimitGuild = form.watch("RATE_LIMIT_GUILD");
 
   if (loading) {
     return (
@@ -450,6 +456,46 @@ export default function SettingsPage() {
               <p className="text-xs text-muted-foreground">
                 Record all translation requests to track language usage patterns across your server
               </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Rate Limiting */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Rate Limiting</CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="rate-limit-user">Per-User Requests / Minute</Label>
+                <Input
+                  id="rate-limit-user"
+                  type="number"
+                  min={1}
+                  max={1000}
+                  value={rateLimitUser}
+                  onChange={(e) => form.setValue("RATE_LIMIT_USER", Number(e.target.value || 1))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Max AI requests a single user can make within one minute
+                </p>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="rate-limit-guild">Per-Guild Requests / Minute</Label>
+                <Input
+                  id="rate-limit-guild"
+                  type="number"
+                  min={1}
+                  max={5000}
+                  value={rateLimitGuild}
+                  onChange={(e) => form.setValue("RATE_LIMIT_GUILD", Number(e.target.value || 1))}
+                />
+                <p className="text-xs text-muted-foreground">
+                  Max total AI requests allowed across the server each minute
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>

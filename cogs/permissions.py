@@ -9,10 +9,14 @@ import db
 
 
 class Permissions(commands.Cog):
+    """Manage command permissions and role-based access control."""
+    
+    permissions_group = app_commands.Group(name="permissions", description="Manage command permissions")
+
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="permissions-set", description="Require a role to use a command")
+    @permissions_group.command(name="set", description="Require a role to use a command")
     @app_commands.describe(
         command="Command name (e.g., 'ask', 'review', 'summarize')",
         role="Role required to use this command"
@@ -42,7 +46,7 @@ class Permissions(commands.Cog):
             ephemeral=True
         )
 
-    @app_commands.command(name="permissions-remove", description="Remove a role requirement from a command")
+    @permissions_group.command(name="remove", description="Remove a role requirement from a command")
     @app_commands.describe(
         command="Command name",
         role="Role to remove"
@@ -69,7 +73,7 @@ class Permissions(commands.Cog):
                 ephemeral=True
             )
 
-    @app_commands.command(name="permissions-list", description="List all command permissions")
+    @permissions_group.command(name="list", description="List all command permissions")
     async def permissions_list(self, interaction: discord.Interaction):
         """List all command permissions for this server."""
         if not interaction.guild:

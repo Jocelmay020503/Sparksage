@@ -16,10 +16,24 @@ async function apiFetch<T>(path: string, options: FetchOptions = {}): Promise<T>
     headers["Authorization"] = `Bearer ${token}`;
   }
 
-  const res = await fetch(`${API_URL}${path}`, {
-    headers,
-    ...rest,
-  });
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 15000);
+
+  let res: Response;
+  try {
+    res = await fetch(`${API_URL}${path}`, {
+      headers,
+      signal: controller.signal,
+      ...rest,
+    });
+  } catch (error) {
+    if (error instanceof Error && error.name === "AbortError") {
+      throw new Error("Request timed out. Please try again.");
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({ detail: res.statusText }));
@@ -54,6 +68,7 @@ export interface MessageItem {
   role: string;
   content: string;
   provider: string | null;
+  interaction_type: string | null;
   created_at: string;
 }
 
@@ -133,6 +148,92 @@ export interface TopExpensiveItem {
   total_cost: number;
   total_tokens: number;
   query_count: number;
+}
+
+export interface AnalyticsSummary {
+  total_events: number;
+  events_by_type: { event_type: string; count: number }[];
+  avg_latency_ms: number;
+  total_tokens: number;
+  unique_users: number;
+}
+
+export interface AnalyticsHistoryItem {
+  date: string;
+  event_count: number;
+  avg_latency_ms: number;
+  total_tokens: number;
+}
+
+export interface TopChannel {
+  channel_id: string;
+  guild_id: string;
+  event_count: number;
+}
+
+export interface ProviderDistribution {
+  provider: string;
+  usage_count: number;
+  avg_latency_ms: number;
+}
+
+export interface RateLimitEntry {
+  user_id?: string;
+  guild_id?: string;
+  requests_last_minute: number;
+}
+
+export interface RateLimitSummary {
+  limits: {
+    user_requests_per_minute: number;
+    guild_requests_per_minute: number;
+  };
+  usage: {
+    window_seconds: number;
+    tracked_users: number;
+    tracked_guilds: number;
+    top_users: RateLimitEntry[];
+    top_guilds: RateLimitEntry[];
+  };
+}
+
+export interface PluginInfo {
+  name: string;
+  version: string;
+  author: string;
+  description: string;
+  enabled: boolean;
+  loaded: boolean;
+  cog_name?: string;
+}
+
+export interface PluginListResponse {
+  plugins: PluginInfo[];
+  total: number;
+}
+
+export interface CatalogPlugin {
+  name: string;
+  version: string;
+  author: string;
+  description: string;
+  repo: string;
+  download_url: string;
+  tags: string[];
+  requires_config: boolean;
+  installed: boolean;
+}
+
+export interface CatalogListResponse {
+  plugins: CatalogPlugin[];
+  total: number;
+}
+
+export interface PluginsOverviewResponse {
+  plugins: PluginInfo[];
+  plugins_total: number;
+  catalog: CatalogPlugin[];
+  catalog_total: number;
 }
 
 export const api = {
@@ -364,6 +465,123 @@ export const api = {
 
   getTopExpensiveGuilds: (token: string, days: number = 30, limit: number = 5) =>
     apiFetch<{ top_guilds: TopExpensiveItem[] }>(`/api/costs/top-guilds?days=${days}&limit=${limit}`, { token }),
+  // Analytics
+  getAnalyticsSummary: (token: string, days: number = 30, guildId?: string) =>
+    apiFetch<AnalyticsSummary>(
+      `/api/analytics/summary?days=${days}${guildId ? `&guild_id=${guildId}` : ""}`,
+      { token }
+    ),
+
+  getAnalyticsHistory: (token: string, days: number = 30, guildId?: string) =>
+    apiFetch<{ history: AnalyticsHistoryItem[] }>(
+      `/api/analytics/history?days=${days}${guildId ? `&guild_id=${guildId}` : ""}`,
+      { token }
+    ),
+
+  getTopChannels: (token: string, days: number = 30, limit: number = 10, guildId?: string) =>
+    apiFetch<{ channels: TopChannel[] }>(
+      `/api/analytics/top-channels?days=${days}&limit=${limit}${guildId ? `&guild_id=${guildId}` : ""}`,
+      { token }
+    ),
+
+  getProviderDistribution: (token: string, days: number = 30, guildId?: string) =>
+    apiFetch<{ providers: ProviderDistribution[] }>(
+      `/api/analytics/providers?days=${days}${guildId ? `&guild_id=${guildId}` : ""}`,
+      { token }
+    ),
+
+  // Rate Limits
+  getRateLimitSummary: (token: string) =>
+    apiFetch<RateLimitSummary>("/api/rate-limits/summary", { token }),
+
+  // Plugins
+  getPluginsList: (token: string) =>
+    apiFetch<PluginListResponse>("/api/plugins/list", { token }),
+
+  getPluginInfo: (token: string, pluginName: string) =>
+    apiFetch<PluginInfo>(`/api/plugins/info/${pluginName}`, { token }),
+
+  enablePlugin: (token: string, pluginName: string) =>
+    apiFetch<{ status: string; message: string; plugin_name: string; loaded: boolean; enabled: boolean }>(
+      `/api/plugins/enable/${pluginName}`,
+      { method: "POST", token }
+    ),
+
+  disablePlugin: (token: string, pluginName: string) =>
+    apiFetch<{ status: string; message: string; plugin_name: string; loaded: boolean; enabled: boolean }>(
+      `/api/plugins/disable/${pluginName}`,
+      { method: "POST", token }
+    ),
+
+  getPluginsStatus: (token: string) =>
+    apiFetch<{ status: Record<string, any> }>("/api/plugins/status", { token }),
+
+  getPluginsCatalog: (token: string) =>
+    apiFetch<CatalogListResponse>("/api/plugins/catalog", { token }),
+
+  getPluginsOverview: (token: string) =>
+    apiFetch<PluginsOverviewResponse>("/api/plugins/overview", { token }),
+
+  installPlugin: (token: string, pluginName: string) =>
+    apiFetch<{ status: string; message: string; plugin_name: string; installed: boolean }>(
+      `/api/plugins/install/${pluginName}`,
+      { method: "POST", token }
+    ),
+
+  uninstallPlugin: (token: string, pluginName: string) =>
+    apiFetch<{ status: string; message: string; plugin_name: string; uninstalled: boolean }>(
+      `/api/plugins/uninstall/${pluginName}`,
+      { method: "DELETE", token }
+    ),
+
+  downloadPlugin: (token: string, pluginName: string) => {
+    // Download plugin as ZIP file
+    const url = `${API_URL}/api/plugins/download/${pluginName}`;
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `${pluginName}.zip`;
+    link.target = '_blank';
+    // Add auth header via fetch and create blob URL
+    return fetch(url, {
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+    })
+      .then(response => {
+        if (!response.ok) {
+          throw new Error(`Download failed: ${response.statusText}`);
+        }
+        return response.blob();
+      })
+      .then(blob => {
+        const blobUrl = window.URL.createObjectURL(blob);
+        link.href = blobUrl;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        window.URL.revokeObjectURL(blobUrl);
+      });
+  },
+
+  uploadPlugin: async (token: string, file: File) => {
+    const formData = new FormData();
+    formData.append('file', file);
+    
+    const res = await fetch(`${API_URL}/api/plugins/upload`, {
+      method: 'POST',
+      headers: {
+        "Authorization": `Bearer ${token}`,
+      },
+      body: formData,
+    });
+
+    if (!res.ok) {
+      const body = await res.json().catch(() => ({ detail: res.statusText }));
+      throw new Error(body.detail || `Upload failed: ${res.status}`);
+    }
+
+    return res.json() as Promise<{ status: string; message: string; plugin_name: string; installed: boolean }>;
+  },
 
   // Wizard
   getWizardStatus: (token: string) =>

@@ -31,12 +31,13 @@ async def init_db():
         );
 
         CREATE TABLE IF NOT EXISTS conversations (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
-            channel_id TEXT    NOT NULL,
-            role       TEXT    NOT NULL,
-            content    TEXT    NOT NULL,
-            provider   TEXT,
-            created_at TEXT    NOT NULL DEFAULT (datetime('now'))
+            id               INTEGER PRIMARY KEY AUTOINCREMENT,
+            channel_id       TEXT    NOT NULL,
+            role             TEXT    NOT NULL,
+            content          TEXT    NOT NULL,
+            provider         TEXT,
+            interaction_type TEXT,
+            created_at       TEXT    NOT NULL DEFAULT (datetime('now'))
         );
         CREATE INDEX IF NOT EXISTS idx_conv_channel ON conversations(channel_id);
 
@@ -138,10 +139,45 @@ async def init_db():
         CREATE INDEX IF NOT EXISTS idx_cost_user ON cost_usage(user_id);
         CREATE INDEX IF NOT EXISTS idx_cost_created ON cost_usage(created_at);
 
+        CREATE TABLE IF NOT EXISTS analytics (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            event_type  TEXT NOT NULL,
+            guild_id    TEXT,
+            channel_id  TEXT,
+            user_id     TEXT,
+            provider    TEXT,
+            tokens_used INTEGER,
+            latency_ms  INTEGER,
+            created_at  TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_analytics_event ON analytics(event_type);
+        CREATE INDEX IF NOT EXISTS idx_analytics_guild ON analytics(guild_id);
+        CREATE INDEX IF NOT EXISTS idx_analytics_channel ON analytics(channel_id);
+        CREATE INDEX IF NOT EXISTS idx_analytics_created ON analytics(created_at);
+
+        CREATE TABLE IF NOT EXISTS plugins (
+            name        TEXT PRIMARY KEY,
+            version     TEXT NOT NULL DEFAULT '1.0.0',
+            author      TEXT NOT NULL DEFAULT 'unknown',
+            description TEXT,
+            enabled     BOOLEAN NOT NULL DEFAULT 0,
+            created_at  TEXT NOT NULL DEFAULT (datetime('now')),
+            updated_at  TEXT NOT NULL DEFAULT (datetime('now'))
+        );
+        CREATE INDEX IF NOT EXISTS idx_plugins_enabled ON plugins(enabled);
+
         INSERT OR IGNORE INTO wizard_state (id) VALUES (1);
         """
     )
     await db.commit()
+    
+    # Migration: Add interaction_type column if it doesn't exist
+    try:
+        await db.execute("ALTER TABLE conversations ADD COLUMN interaction_type TEXT")
+        await db.commit()
+    except aiosqlite.OperationalError:
+        # Column already exists
+        pass
 
 
 # --- Config helpers ---
@@ -238,12 +274,12 @@ async def sync_db_to_env():
 # --- Conversation helpers ---
 
 
-async def add_message(channel_id: str, role: str, content: str, provider: str | None = None):
+async def add_message(channel_id: str, role: str, content: str, provider: str | None = None, interaction_type: str | None = None):
     """Add a message to conversation history."""
     db = await get_db()
     await db.execute(
-        "INSERT INTO conversations (channel_id, role, content, provider) VALUES (?, ?, ?, ?)",
-        (channel_id, role, content, provider),
+        "INSERT INTO conversations (channel_id, role, content, provider, interaction_type) VALUES (?, ?, ?, ?, ?)",
+        (channel_id, role, content, provider, interaction_type),
     )
     await db.commit()
 
@@ -252,7 +288,7 @@ async def get_messages(channel_id: str, limit: int = 20) -> list[dict]:
     """Get recent messages for a channel."""
     db = await get_db()
     cursor = await db.execute(
-        "SELECT role, content, provider, created_at FROM conversations WHERE channel_id = ? ORDER BY id DESC LIMIT ?",
+        "SELECT role, content, provider, interaction_type, created_at FROM conversations WHERE channel_id = ? ORDER BY id DESC LIMIT ?",
         (channel_id, limit),
     )
     rows = await cursor.fetchall()
@@ -496,14 +532,15 @@ async def add_moderation_log(
     severity: str,
     reason: str,
     provider: str | None = None,
-):
-    """Log a moderation event."""
+) -> int:
+    """Log a moderation event and return the log ID."""
     db = await get_db()
-    await db.execute(
+    cursor = await db.execute(
         "INSERT INTO moderation_logs (guild_id, channel_id, user_id, message_id, severity, reason, provider) VALUES (?, ?, ?, ?, ?, ?, ?)",
         (guild_id, channel_id, user_id, message_id, severity, reason, provider),
     )
     await db.commit()
+    return cursor.lastrowid
 
 
 async def get_moderation_logs(
@@ -800,6 +837,189 @@ async def get_cost_by_provider(days: int = 30) -> list[dict]:
         }
         for row in rows
     ]
+# --- Analytics functions ---
+
+
+async def record_analytics_event(
+    event_type: str,
+    guild_id: str | None = None,
+    channel_id: str | None = None,
+    user_id: str | None = None,
+    provider: str | None = None,
+    tokens_used: int | None = None,
+    latency_ms: int | None = None,
+):
+    """Record an analytics event."""
+    db = await get_db()
+    await db.execute(
+        """INSERT INTO analytics (event_type, guild_id, channel_id, user_id, provider, tokens_used, latency_ms)
+           VALUES (?, ?, ?, ?, ?, ?, ?)""",
+        (event_type, guild_id, channel_id, user_id, provider, tokens_used, latency_ms),
+    )
+    await db.commit()
+
+
+async def get_analytics_summary(guild_id: str | None = None, days: int = 30) -> dict:
+    """Get summary analytics statistics."""
+    db = await get_db()
+    
+    where_clause = "WHERE created_at > datetime('now', ? || ' days')"
+    params = [f"-{days}"]
+    
+    if guild_id:
+        where_clause += " AND guild_id = ?"
+        params.append(guild_id)
+    
+    # Total events
+    cursor = await db.execute(
+        f"SELECT COUNT(*) as total FROM analytics {where_clause}",
+        params,
+    )
+    row = await cursor.fetchone()
+    total_events = int(row["total"]) if row else 0
+    
+    # Events by type
+    cursor = await db.execute(
+        f"""SELECT event_type, COUNT(*) as count
+            FROM analytics {where_clause}
+            GROUP BY event_type
+            ORDER BY count DESC""",
+        params,
+    )
+    events_by_type = [
+        {"event_type": row["event_type"], "count": int(row["count"])}
+        for row in await cursor.fetchall()
+    ]
+    
+    # Average latency
+    cursor = await db.execute(
+        f"""SELECT AVG(latency_ms) as avg_latency
+            FROM analytics {where_clause} AND latency_ms IS NOT NULL""",
+        params,
+    )
+    row = await cursor.fetchone()
+    avg_latency = float(row["avg_latency"]) if row and row["avg_latency"] else 0
+    
+    # Total tokens
+    cursor = await db.execute(
+        f"""SELECT SUM(tokens_used) as total_tokens
+            FROM analytics {where_clause} AND tokens_used IS NOT NULL""",
+        params,
+    )
+    row = await cursor.fetchone()
+    total_tokens = int(row["total_tokens"]) if row and row["total_tokens"] else 0
+    
+    # Unique users
+    cursor = await db.execute(
+        f"""SELECT COUNT(DISTINCT user_id) as unique_users
+            FROM analytics {where_clause} AND user_id IS NOT NULL""",
+        params,
+    )
+    row = await cursor.fetchone()
+    unique_users = int(row["unique_users"]) if row else 0
+    
+    return {
+        "total_events": total_events,
+        "events_by_type": events_by_type,
+        "avg_latency_ms": round(avg_latency, 2),
+        "total_tokens": total_tokens,
+        "unique_users": unique_users,
+    }
+
+
+async def get_analytics_history(guild_id: str | None = None, days: int = 30) -> list[dict]:
+    """Get daily analytics history."""
+    db = await get_db()
+    
+    where_clause = "WHERE created_at > datetime('now', ? || ' days')"
+    params = [f"-{days}"]
+    
+    if guild_id:
+        where_clause += " AND guild_id = ?"
+        params.append(guild_id)
+    
+    cursor = await db.execute(
+        f"""SELECT DATE(created_at) as date, COUNT(*) as event_count,
+                   AVG(latency_ms) as avg_latency, SUM(tokens_used) as total_tokens
+            FROM analytics {where_clause}
+            GROUP BY DATE(created_at)
+            ORDER BY date ASC""",
+        params,
+    )
+    rows = await cursor.fetchall()
+    return [
+        {
+            "date": row["date"],
+            "event_count": int(row["event_count"]),
+            "avg_latency_ms": round(float(row["avg_latency"]), 2) if row["avg_latency"] else 0,
+            "total_tokens": int(row["total_tokens"]) if row["total_tokens"] else 0,
+        }
+        for row in rows
+    ]
+
+
+async def get_top_channels_by_activity(guild_id: str | None = None, days: int = 30, limit: int = 10) -> list[dict]:
+    """Get most active channels."""
+    db = await get_db()
+    
+    where_clause = "WHERE created_at > datetime('now', ? || ' days') AND channel_id IS NOT NULL"
+    params = [f"-{days}"]
+    
+    if guild_id:
+        where_clause += " AND guild_id = ?"
+        params.append(guild_id)
+    
+    params.append(limit)
+    
+    cursor = await db.execute(
+        f"""SELECT channel_id, guild_id, COUNT(*) as event_count
+            FROM analytics {where_clause}
+            GROUP BY channel_id
+            ORDER BY event_count DESC
+            LIMIT ?""",
+        params,
+    )
+    rows = await cursor.fetchall()
+    return [
+        {
+            "channel_id": row["channel_id"],
+            "guild_id": row["guild_id"],
+            "event_count": int(row["event_count"]),
+        }
+        for row in rows
+    ]
+
+
+async def get_provider_distribution(guild_id: str | None = None, days: int = 30) -> list[dict]:
+    """Get provider usage distribution."""
+    db = await get_db()
+    
+    where_clause = "WHERE created_at > datetime('now', ? || ' days') AND provider IS NOT NULL"
+    params = [f"-{days}"]
+    
+    if guild_id:
+        where_clause += " AND guild_id = ?"
+        params.append(guild_id)
+    
+    cursor = await db.execute(
+        f"""SELECT provider, COUNT(*) as usage_count,
+                   AVG(latency_ms) as avg_latency
+            FROM analytics {where_clause}
+            GROUP BY provider
+            ORDER BY usage_count DESC""",
+        params,
+    )
+    rows = await cursor.fetchall()
+    return [
+        {
+            "provider": row["provider"],
+            "usage_count": int(row["usage_count"]),
+            "avg_latency_ms": round(float(row["avg_latency"]), 2) if row["avg_latency"] else 0,
+        }
+        for row in rows
+    ]
+
+
 
 
 async def get_top_expensive_users(days: int = 30, limit: int = 10) -> list[dict]:
@@ -872,6 +1092,138 @@ async def get_cost_history(days: int = 30) -> list[dict]:
         }
         for row in rows
     ]
+
+
+# Plugin management functions
+
+
+async def save_plugin_manifest(name: str, version: str, author: str, description: str) -> bool:
+    """Save or update a plugin manifest in the database."""
+    try:
+        db = await get_db()
+        await db.execute(
+            """INSERT INTO plugins (name, version, author, description, updated_at)
+               VALUES (?, ?, ?, ?, datetime('now'))
+               ON CONFLICT(name) DO UPDATE SET
+                   version = excluded.version,
+                   author = excluded.author,
+                   description = excluded.description,
+                   updated_at = datetime('now')""",
+            (name, version, author, description),
+        )
+        await db.commit()
+        return True
+    except Exception:
+        return False
+
+
+async def save_plugin_manifests_bulk(manifests: list[tuple[str, str, str, str]]) -> bool:
+    """Save or update multiple plugin manifests in a single transaction."""
+    if not manifests:
+        return True
+
+    try:
+        db = await get_db()
+        await db.executemany(
+            """INSERT INTO plugins (name, version, author, description, updated_at)
+               VALUES (?, ?, ?, ?, datetime('now'))
+               ON CONFLICT(name) DO UPDATE SET
+                   version = excluded.version,
+                   author = excluded.author,
+                   description = excluded.description,
+                   updated_at = datetime('now')""",
+            manifests,
+        )
+        await db.commit()
+        return True
+    except Exception:
+        return False
+
+
+async def get_plugin_status(name: str) -> dict | None:
+    """Get a plugin's status from database."""
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT * FROM plugins WHERE name = ?", (name,)
+    )
+    row = await cursor.fetchone()
+    if row:
+        return {
+            "name": row["name"],
+            "version": row["version"],
+            "author": row["author"],
+            "description": row["description"],
+            "enabled": bool(row["enabled"]),
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }
+    return None
+
+
+async def enable_plugin(name: str) -> bool:
+    """Enable a plugin."""
+    try:
+        db = await get_db()
+        await db.execute(
+            """INSERT INTO plugins (name, enabled, updated_at)
+               VALUES (?, 1, datetime('now'))
+               ON CONFLICT(name) DO UPDATE SET
+                   enabled = 1,
+                   updated_at = datetime('now')""",
+            (name,),
+        )
+        await db.commit()
+        return True
+    except Exception:
+        return False
+
+
+async def disable_plugin(name: str) -> bool:
+    """Disable a plugin."""
+    try:
+        db = await get_db()
+        await db.execute(
+            """INSERT INTO plugins (name, enabled, updated_at)
+               VALUES (?, 0, datetime('now'))
+               ON CONFLICT(name) DO UPDATE SET
+                   enabled = 0,
+                   updated_at = datetime('now')""",
+            (name,),
+        )
+        await db.commit()
+        return True
+    except Exception:
+        return False
+
+
+async def get_all_plugins() -> list[dict]:
+    """Get all plugins from database."""
+    db = await get_db()
+    cursor = await db.execute("SELECT * FROM plugins ORDER BY name")
+    rows = await cursor.fetchall()
+    return [
+        {
+            "name": row["name"],
+            "version": row["version"],
+            "author": row["author"],
+            "description": row["description"],
+            "enabled": bool(row["enabled"]),
+            "created_at": row["created_at"],
+            "updated_at": row["updated_at"],
+        }
+        for row in rows
+    ]
+
+
+async def delete_plugin(name: str) -> bool:
+    """Delete a plugin record from database."""
+    try:
+        db = await get_db()
+        await db.execute("DELETE FROM plugins WHERE name = ?", (name,))
+        await db.commit()
+        return True
+    except Exception:
+        return False
 
 
 async def close_db():

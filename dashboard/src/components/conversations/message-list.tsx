@@ -21,10 +21,18 @@ export function MessageList({ messages }: MessageListProps) {
     );
   }
 
+  // Debug: Log messages to identify interaction_type values
+  messages.forEach((msg, i) => {
+    if (msg.interaction_type) {
+      console.log(`Message ${i}: interaction_type="${msg.interaction_type}", role="${msg.role}"`);
+    }
+  });
+
   return (
     <div className="space-y-3">
       {messages.map((msg, i) => {
         const isUser = msg.role === "user";
+        const isCodeReview = msg.interaction_type === "code_review";
         return (
           <div
             key={i}
@@ -38,8 +46,13 @@ export function MessageList({ messages }: MessageListProps) {
               }`}
             >
               <p className="text-sm whitespace-pre-wrap">{msg.content}</p>
-              <div className={`mt-1 flex items-center gap-2 text-xs ${isUser ? "opacity-70" : "text-muted-foreground"}`}>
+              <div className={`mt-1 flex flex-wrap items-center gap-2 text-xs ${isUser ? "opacity-70" : "text-muted-foreground"}`}>
                 <span>{formatTime(msg.created_at)}</span>
+                {isCodeReview && !isUser && (
+                  <Badge variant="secondary" className="text-xs px-1.5 py-0 bg-blue-100 text-blue-900 dark:bg-blue-900 dark:text-blue-100">
+                    Code Review
+                  </Badge>
+                )}
                 {msg.provider && !isUser && (
                   <Badge variant="outline" className="text-xs px-1.5 py-0">
                     {msg.provider}

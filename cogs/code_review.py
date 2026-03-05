@@ -92,12 +92,14 @@ Provide detailed feedback on bugs, style, performance, and security."""
         # Get AI review response using the code review system prompt
         try:
             response, provider_name = await ask_ai(
-                interaction.channel_id, interaction.user.display_name, review_request
+                interaction.channel_id, 
+                interaction.user.display_name, 
+                review_request,
+                custom_system_prompt=CODE_REVIEW_SYSTEM_PROMPT,
+                interaction_type="code_review",
+                guild_id=str(interaction.guild_id) if interaction.guild_id else None,
+                user_id=str(interaction.user.id),
             )
-            # Update the system prompt context for this specific review
-            # Note: ask_ai uses config.SYSTEM_PROMPT; for specialized prompts,
-            # we'd need to pass a custom prompt. For now, the base system prompt works,
-            # as it's generic enough. In future, we could enhance ask_ai to accept custom prompts.
 
             provider_label = config.PROVIDERS.get(provider_name, {}).get("name", provider_name)
             lang_label = language if language != "plaintext" else "text"

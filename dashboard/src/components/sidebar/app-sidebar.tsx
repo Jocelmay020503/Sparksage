@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { signOut } from "next-auth/react";
 import {
   Zap,
@@ -15,6 +16,9 @@ import {
   Route,
   Wand2,
   DollarSign,
+  BarChart3,
+  ShieldCheck,
+  PlusCircle,
   LogOut,
 } from "lucide-react";
 import {
@@ -42,10 +46,19 @@ const NAV_ITEMS = [
   { title: "Prompts", href: "/dashboard/prompts", icon: Sparkles },
   { title: "Channel Providers", href: "/dashboard/channel-providers", icon: Route },
   { title: "Costs", href: "/dashboard/costs", icon: DollarSign },
+  { title: "Analytics", href: "/dashboard/analytics", icon: BarChart3 },
+  { title: "Quota", href: "/dashboard/quota", icon: ShieldCheck },
+  { title: "Plugins", href: "/dashboard/plugins", icon: PlusCircle },
 ];
 
 export function AppSidebar() {
   const pathname = usePathname();
+  const router = useRouter();
+
+  useEffect(() => {
+    // Warm up Plugins route so first click does not wait for on-demand compile.
+    router.prefetch("/dashboard/plugins");
+  }, [router]);
 
   return (
     <Sidebar>

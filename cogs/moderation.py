@@ -9,12 +9,59 @@ from __future__ import annotations
 
 import discord
 from discord.ext import commands
+from discord import ui
 import json
 import asyncio
 
 import config
 import providers
 import db as database
+
+
+class ModerationActionView(ui.View):
+    """Action buttons for moderation log messages."""
+    
+    def __init__(self, message_url: str, log_id: int | None = None):
+        super().__init__(timeout=None)  # Persistent buttons
+        self.message_url = message_url
+        self.log_id = log_id
+        
+        # Add "Jump to Message" button
+        jump_button = ui.Button(
+            label="Jump to Message",
+            style=discord.ButtonStyle.link,
+            url=message_url,
+            emoji="🔗"
+        )
+        self.add_item(jump_button)
+    
+    @ui.button(label="Mark as Reviewed", style=discord.ButtonStyle.success, emoji="✅")
+    async def mark_reviewed(self, interaction: discord.Interaction, button: ui.Button):
+        """Mark this moderation event as reviewed."""
+        # Check if user has moderation permissions
+        if not interaction.user.guild_permissions.manage_messages:
+            await interaction.response.send_message(
+                "❌ You need Manage Messages permission to review moderation events.",
+                ephemeral=True
+            )
+            return
+        
+        button.disabled = True
+        button.label = "Reviewed"
+        button.style = discord.ButtonStyle.secondary
+        
+        await interaction.response.edit_message(view=self)
+        await interaction.followup.send(
+            f"✅ Marked as reviewed by {interaction.user.mention}",
+            ephemeral=False
+        )
+        
+        # Update database if log_id is available
+        if self.log_id:
+            try:
+                await database.mark_moderation_reviewed(self.log_id)
+            except Exception as e:
+                print(f"⚠️ Failed to mark moderation log as reviewed: {e}")
 
 
 class Moderation(commands.Cog):
@@ -64,11 +111,23 @@ class Moderation(commands.Cog):
         self, message: discord.Message, mod_log_channel: discord.TextChannel
     ):
         """Check a message and flag if needed."""
+        # Build sensitivity instructions
+        sensitivity = config.MODERATION_SENSITIVITY
+        sensitivity_instructions = {
+            "low": "Only flag extremely severe violations like hate speech, threats, or illegal content. Be lenient with casual language.",
+            "medium": "Flag clear policy violations including toxicity, spam, and NSFW content. Use balanced judgment.",
+            "high": "Flag any potentially problematic content including mild toxicity, borderline spam, or questionable language. Be strict."
+        }
+        sensitivity_instruction = sensitivity_instructions.get(sensitivity, sensitivity_instructions["medium"])
+        
         moderation_prompt = f"""Rate the following Discord message for potential policy violations.
 
 USER: {message.author.display_name}
 CHANNEL: #{message.channel.name}
 CONTENT: "{message.content}"
+
+SENSITIVITY LEVEL: {sensitivity.upper()}
+{sensitivity_instruction}
 
 Check for:
 1. Toxicity, hate speech, or harassment
@@ -86,7 +145,7 @@ Examples:
 """
 
         try:
-            system_prompt = "You are a content moderation assistant. Rate messages objectively and fairly. Respond ONLY with valid JSON."
+            system_prompt = f"You are a content moderation assistant with {sensitivity} sensitivity. Rate messages objectively and fairly. Respond ONLY with valid JSON."
             response, provider_name = providers.chat(
                 [{"role": "user", "content": moderation_prompt}],
                 system_prompt,
@@ -151,22 +210,10 @@ Examples:
                 value=f"`{provider_name}`",
                 inline=True,
             )
-            embed.add_field(
-                name="🔗 Jump to Message",
-                value=f"[View](https://discord.com/channels/{message.guild.id}/{message.channel.id}/{message.id})",
-                inline=True,
-            )
             embed.set_footer(text="SparkSage Moderation System")
 
-            # Post to mod-log
-            try:
-                await mod_log_channel.send(embed=embed)
-                print(f"🚩 Message flagged from {message.author.display_name}: {severity}")
-            except discord.Forbidden:
-                print(f"⚠️ No permission to post to mod-log channel {mod_log_channel.id}")
-
-            # Track moderation event in database
-            await self._log_moderation_event(
+            # Log to database first to get the log_id
+            log_id = await self._log_moderation_event(
                 message.guild.id,
                 message.channel.id,
                 message.author.id,
@@ -175,6 +222,17 @@ Examples:
                 reason,
                 provider_name,
             )
+            
+            # Create action buttons view
+            message_url = f"https://discord.com/channels/{message.guild.id}/{message.channel.id}/{message.id}"
+            view = ModerationActionView(message_url=message_url, log_id=log_id)
+
+            # Post to mod-log with action buttons
+            try:
+                await mod_log_channel.send(embed=embed, view=view)
+                print(f"🚩 Message flagged from {message.author.display_name}: {severity}")
+            except discord.Forbidden:
+                print(f"⚠️ No permission to post to mod-log channel {mod_log_channel.id}")
 
         except Exception as e:
             print(f"❌ Error during moderation check: {e}")
@@ -188,10 +246,10 @@ Examples:
         severity: str,
         reason: str,
         provider: str,
-    ):
-        """Log a moderation event to the database."""
+    ) -> int | None:
+        """Log a moderation event to the database and return the log ID."""
         try:
-            await database.add_moderation_log(
+            log_id = await database.add_moderation_log(
                 str(guild_id),
                 str(channel_id),
                 str(user_id),
@@ -200,8 +258,10 @@ Examples:
                 reason,
                 provider,
             )
+            return log_id
         except Exception as e:
             print(f"⚠️ Failed to log moderation event: {e}")
+            return None
 
 
 async def setup(bot: commands.Bot):

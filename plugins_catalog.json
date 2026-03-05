@@ -1,0 +1,92 @@
+[
+  {
+    "name": "hello_test",
+    "version": "1.0.0",
+    "author": "Test Author",
+    "description": "Simple test plugin for installation workflow validation.",
+    "repo": "http://localhost:8001",
+    "download_url": "http://localhost:8001/hello_test.zip",
+    "tags": ["test", "demo"],
+    "requires_config": false
+  },
+  {
+    "name": "trivia",
+    "version": "1.0.0",
+    "author": "SparkSage Community",
+    "description": "Interactive trivia game commands for Discord servers. Supports multiple quiz formats and leaderboards.",
+    "repo": "https://github.com/sparksage/plugin-trivia",
+    "download_url": "https://github.com/sparksage/plugin-trivia/releases/download/v1.0.0/trivia.zip",
+    "tags": ["game", "fun", "trivia"],
+    "requires_config": false
+  },
+  {
+    "name": "moderation_tools",
+    "version": "1.0.0",
+    "author": "SparkSage Community",
+    "description": "Advanced moderation tools including auto-moderation, profanity filters, and user warnings.",
+    "repo": "https://github.com/sparksage/plugin-moderation",
+    "download_url": "https://github.com/sparksage/plugin-moderation/releases/download/v1.0.0/moderation_tools.zip",
+    "tags": ["moderation", "admin", "safety"],
+    "requires_config": true
+  },
+  {
+    "name": "user_stats",
+    "version": "1.0.0",
+    "author": "SparkSage Community",
+    "description": "Track and display user statistics including chat activity, contribution scores, and achievements.",
+    "repo": "https://github.com/sparksage/plugin-stats",
+    "download_url": "https://github.com/sparksage/plugin-stats/releases/download/v1.0.0/user_stats.zip",
+    "tags": ["stats", "tracking", "leaderboard"],
+    "requires_config": false
+  },
+  {
+    "name": "music_player",
+    "version": "1.0.0",
+    "author": "SparkSage Community",
+    "description": "Play music in voice channels with playlist support. Uses YouTube or Spotify as sources.",
+    "repo": "https://github.com/sparksage/plugin-music",
+    "download_url": "https://github.com/sparksage/plugin-music/releases/download/v1.0.0/music_player.zip",
+    "tags": ["music", "audio", "entertainment"],
+    "requires_config": true
+  },
+  {
+    "name": "role_manager",
+    "version": "1.0.0",
+    "author": "SparkSage Community",
+    "description": "Automated role assignment based on user reactions or profile settings. Simplifies server management.",
+    "repo": "https://github.com/sparksage/plugin-roles",
+    "download_url": "https://github.com/sparksage/plugin-roles/releases/download/v1.0.0/role_manager.zip",
+    "tags": ["roles", "admin", "automation"],
+    "requires_config": true
+  },
+  {
+    "name": "custom_commands",
+    "version": "1.0.0",
+    "author": "SparkSage Community",
+    "description": "Create custom commands without coding. Perfect for server-specific jokes and responses.",
+    "repo": "https://github.com/sparksage/plugin-custom-commands",
+    "download_url": "https://github.com/sparksage/plugin-custom-commands/releases/download/v1.0.0/custom_commands.zip",
+    "tags": ["commands", "fun", "customization"],
+    "requires_config": false
+  },
+  {
+    "name": "welcome_bot",
+    "version": "1.0.0",
+    "author": "SparkSage Community",
+    "description": "Automatically greet new members with customizable messages and role assignments.",
+    "repo": "https://github.com/sparksage/plugin-welcome",
+    "download_url": "https://github.com/sparksage/plugin-welcome/releases/download/v1.0.0/welcome_bot.zip",
+    "tags": ["welcome", "onboarding", "automation"],
+    "requires_config": true
+  },
+  {
+    "name": "suggestion_system",
+    "version": "1.0.0",
+    "author": "SparkSage Community",
+    "description": "Allow server members to submit suggestions with voting and admin review system.",
+    "repo": "https://github.com/sparksage/plugin-suggestions",
+    "download_url": "https://github.com/sparksage/plugin-suggestions/releases/download/v1.0.0/suggestion_system.zip",
+    "tags": ["suggestions", "voting", "community"],
+    "requires_config": false
+  }
+]

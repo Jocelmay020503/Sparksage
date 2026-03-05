@@ -1,0 +1,8 @@
+{
+  "name": "trivia",
+  "version": "1.0.0",
+  "author": "SparkSage Community",
+  "description": "Interactive trivia game commands for Discord servers.",
+  "cog": "trivia.py",
+  "requirements": []
+}

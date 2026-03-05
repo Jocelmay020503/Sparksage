@@ -42,7 +42,11 @@ class Summarize(commands.Cog):
 
         summary_prompt = "Please summarize the key points from this conversation so far in a concise bullet-point format."
         response, provider_name = await ask_ai(
-            interaction.channel_id, interaction.user.display_name, summary_prompt
+            interaction.channel_id,
+            interaction.user.display_name,
+            summary_prompt,
+            guild_id=str(interaction.guild_id) if interaction.guild_id else None,
+            user_id=str(interaction.user.id),
         )
         await interaction.followup.send(f"**Conversation Summary:**\n{response}")
 

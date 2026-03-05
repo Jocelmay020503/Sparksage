@@ -1,0 +1,10 @@
+{
+    "version":  "1.0.0",
+    "name":  "hello_test",
+    "description":  "A hello world test plugin",
+    "cog":  "hello_test.py",
+    "author":  "Test",
+    "requirements":  [
+
+                     ]
+}

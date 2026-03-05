@@ -1,0 +1,9 @@
+{
+  "name": "poll",
+  "version": "1.0.0",
+  "author": "community",
+  "description": "Create polls in your Discord server! Users can vote using reactions.",
+  "cog": "poll.py",
+  "commands": ["poll", "endpoll"],
+  "tags": ["fun", "utility"]
+}

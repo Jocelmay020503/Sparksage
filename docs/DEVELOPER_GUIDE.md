@@ -401,7 +401,7 @@ async def setup(bot):
 
 ### 5.3 Plugin System for Community Extensions
 
-**Goal:** Allow community-contributed cog plugins.
+**Goal:** Allow community-contributed cog plugins with manual download/upload support.
 
 **What to do:**
 1. Create a `plugins/` directory with a loader
@@ -416,8 +416,71 @@ async def setup(bot):
    }
    ```
 3. Add `/plugin list`, `/plugin enable`, `/plugin disable` commands
-4. Add dashboard plugin management page
+4. Add dashboard plugin management page with manual download/upload functionality
 5. Plugins are loaded/unloaded at runtime without restart
+
+**Manual Plugin Download/Upload Features:**
+
+The plugin system now supports manual plugin distribution via ZIP files:
+
+**Downloading Plugins:**
+- Each installed plugin has a "Download" button in the dashboard
+- Downloads create a ZIP file containing the plugin folder (manifest.json + cog files)
+- ZIP files are stored in `plugins_downloads/` and served via `/api/plugins/download/{plugin_name}`
+- Use case: Backup plugins, share custom plugins with other servers
+
+**Uploading Plugins:**
+- Dashboard has an "Upload Custom Plugin" card above the plugin tabs
+- Accepts .zip files containing a valid plugin structure
+- ZIP must contain a `manifest.json` with plugin metadata
+- Plugin is automatically extracted, installed, and registered in the database
+- Endpoint: `POST /api/plugins/upload` (multipart/form-data)
+
+**Plugin ZIP Structure:**
+```
+plugin_name.zip
+├── manifest.json       # Required: plugin metadata
+├── plugin_cog.py       # Required: Discord.py Cog implementation
+└── README.md          # Optional: plugin documentation
+```
+
+**API Endpoints:**
+- `GET /api/plugins/download/{plugin_name}` — Download plugin as ZIP
+- `POST /api/plugins/upload` — Upload and install plugin from ZIP
+
+**Dashboard Implementation:**
+- Upload button triggers file input dialog (accepts .zip only)
+- Download button creates and downloads ZIP with plugin contents
+- Toast notifications for success/error feedback
+- Automatic plugin list refresh after upload
+
+**Example Usage:**
+
+1. **Download a plugin for backup:**
+   ```
+   Click "Download" button on any installed plugin in dashboard
+   → Saves pluginname.zip to your downloads folder
+   ```
+
+2. **Upload a custom plugin:**
+   ```
+   Click "Choose ZIP File" in Upload Custom Plugin card
+   → Select your_plugin.zip
+   → Plugin is installed and appears in Installed tab
+   ```
+
+3. **Share a plugin with another server:**
+   ```
+   Server A: Download plugin via dashboard
+   Server B: Upload the same ZIP file
+   → Plugin is now available on both servers
+   ```
+
+**Security Considerations:**
+- ZIP extraction checks for path traversal attacks (no `..` or absolute paths)
+- Only .zip files accepted
+- Plugin name extracted from manifest.json (not from filename)
+- Requires authentication (JWT token) for download/upload
 
 ---
 

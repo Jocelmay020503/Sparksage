@@ -38,7 +38,11 @@ class General(commands.Cog):
         
         await interaction.response.defer()
         response, provider_name = await ask_ai(
-            interaction.channel_id, interaction.user.display_name, question
+            interaction.channel_id,
+            interaction.user.display_name,
+            question,
+            guild_id=str(interaction.guild_id) if interaction.guild_id else None,
+            user_id=str(interaction.user.id),
         )
         provider_label = config.PROVIDERS.get(provider_name, {}).get("name", provider_name)
         footer = f"\n-# Powered by {provider_label}"

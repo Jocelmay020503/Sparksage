@@ -14,6 +14,7 @@ from discord import app_commands
 import config
 import providers
 import db as database
+from utils import check_command_permission
 
 
 # Common languages for autocomplete
@@ -85,6 +86,9 @@ class Translate(commands.Cog):
         language: str,
     ):
         """Translate text to a specified language."""
+        if not await check_command_permission(interaction, "translate"):
+            return
+
         await interaction.response.defer()
 
         try:

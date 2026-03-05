@@ -115,10 +115,24 @@ export default function CostsDashboard() {
           setHistory(historyResult.value.history || []);
         }
         if (usersResult.status === "fulfilled" && usersResult.value) {
-          setTopUsers(usersResult.value.top_users || []);
+          const normalizedTopUsers: TopItem[] = (usersResult.value.top_users || []).map((item) => ({
+            user_id: item.user_id,
+            guild_id: item.guild_id,
+            total_cost: Number(item.total_cost ?? 0),
+            total_tokens: Number(item.total_tokens ?? 0),
+            query_count: Number(item.query_count ?? 0),
+          }));
+          setTopUsers(normalizedTopUsers);
         }
         if (guildsResult.status === "fulfilled" && guildsResult.value) {
-          setTopGuilds(guildsResult.value.top_guilds || []);
+          const normalizedTopGuilds: TopItem[] = (guildsResult.value.top_guilds || []).map((item) => ({
+            user_id: item.user_id,
+            guild_id: item.guild_id,
+            total_cost: Number(item.total_cost ?? 0),
+            total_tokens: Number(item.total_tokens ?? 0),
+            query_count: Number(item.query_count ?? 0),
+          }));
+          setTopGuilds(normalizedTopGuilds);
         }
       } catch (err) {
         setError(

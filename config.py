@@ -7,6 +7,7 @@ load_dotenv()
 
 # Discord
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+DISCORD_GUILD_ID = os.getenv("DISCORD_GUILD_ID")  # Optional: for instant command sync during development
 
 # Provider selection
 AI_PROVIDER = os.getenv("AI_PROVIDER", "gemini").lower()
@@ -75,6 +76,10 @@ TRANSLATION_LOGGING_ENABLED = os.getenv("TRANSLATION_LOGGING_ENABLED", "false").
     "yes",
     "on",
 }
+
+# Rate limiting settings
+RATE_LIMIT_USER = int(os.getenv("RATE_LIMIT_USER", "20"))
+RATE_LIMIT_GUILD = int(os.getenv("RATE_LIMIT_GUILD", "120"))
 
 # Dashboard settings
 DATABASE_PATH = os.getenv("DATABASE_PATH", "sparksage.db")
@@ -163,7 +168,11 @@ def reload_from_db(db_config: dict[str, str]):
         "MODERATION_SENSITIVITY": str,
         "MOD_LOG_CHANNEL_ID": str,
         "TRANSLATION_LOGGING_ENABLED": lambda v: v.strip().lower() in {"1", "true", "yes", "on"},
+        "RATE_LIMIT_USER": int,
+        "RATE_LIMIT_GUILD": int,
         "ADMIN_PASSWORD": str,
+        "DISCORD_TOKEN": str,
+        "DISCORD_GUILD_ID": str,
         "DISCORD_CLIENT_ID": str,
         "DISCORD_CLIENT_SECRET": str,
         "JWT_SECRET": str,
