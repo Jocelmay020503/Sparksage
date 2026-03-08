@@ -1,6 +1,6 @@
 import os
 from contextlib import asynccontextmanager
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 from api.routes import auth, config, providers, bot, conversations, wizard, faqs, permissions, channel_prompts, channel_providers, costs, analytics, rate_limits, plugins
 import db
@@ -54,5 +54,19 @@ def create_app() -> FastAPI:
     @app.get("/api/health")
     async def health():
         return {"status": "ok"}
+
+    @app.get("/")
+    async def root():
+        return {
+            "service": "SparkSage API",
+            "status": "ok",
+            "health": "/api/health",
+            "docs": "/docs",
+        }
+
+    @app.get("/favicon.ico")
+    async def favicon():
+        # Return no-content to avoid noisy 404 logs for browser favicon requests.
+        return Response(status_code=204)
 
     return app
