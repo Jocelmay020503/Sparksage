@@ -3,6 +3,7 @@
 import asyncio
 import threading
 import os
+import time
 import uvicorn
 
 
@@ -25,6 +26,49 @@ async def _init_database():
     import db
     await db.init_db()
     await db.sync_env_to_db()
+
+
+def _is_discord_rate_limit_error(error: Exception) -> bool:
+    """Detect Discord/Cloudflare login throttling errors."""
+    status = getattr(error, "status", None)
+    message = str(error).lower()
+    return (
+        status == 429
+        or "too many requests" in message
+        or "error 1015" in message
+        or "cloudflare" in message and "rate" in message
+    )
+
+
+def _run_bot_with_retry(token: str):
+    """Run Discord bot with retry/backoff so API stays alive during temporary login bans."""
+    from bot import bot
+
+    initial_wait = int(os.getenv("DISCORD_RETRY_INITIAL_SECONDS", "60"))
+    max_wait = int(os.getenv("DISCORD_RETRY_MAX_SECONDS", "1800"))
+    wait_seconds = max(5, initial_wait)
+
+    while True:
+        try:
+            bot.run(token)
+            # If bot.run exits without exception, stop retry loop.
+            return
+        except KeyboardInterrupt:
+            print("\nShutting down...")
+            return
+        except Exception as exc:
+            if _is_discord_rate_limit_error(exc):
+                print(
+                    "  Discord login is temporarily rate-limited (429/1015). "
+                    f"Retrying in {wait_seconds} second(s)..."
+                )
+                time.sleep(wait_seconds)
+                wait_seconds = min(wait_seconds * 2, max_wait)
+                continue
+
+            print(f"  Discord bot crashed: {exc}")
+            print("  Retrying bot startup in 30 seconds...")
+            time.sleep(30)
 
 
 def main():
@@ -65,8 +109,7 @@ def main():
     print(f"  Fallback chain: {' -> '.join(available) if available else 'none'}")
     print("=" * 50)
 
-    from bot import bot
-    bot.run(config.DISCORD_TOKEN)
+    _run_bot_with_retry(config.DISCORD_TOKEN)
 
 
 if __name__ == "__main__":
