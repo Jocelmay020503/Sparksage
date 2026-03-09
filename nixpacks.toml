@@ -2,7 +2,10 @@
 nixPkgs = ["ffmpeg", "python311"]
 
 [phases.install]
-cmds = ["pip install -r requirements.txt"]
+cmds = [
+  "pip install -r requirements.txt",
+  "which ffmpeg || echo 'FFmpeg not found in PATH'"
+]
 
 [start]
 cmd = "python run.py"

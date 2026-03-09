@@ -3,7 +3,15 @@ from discord.ext import commands
 from discord import app_commands
 import yt_dlp
 import asyncio
+import shutil
 from utils import safe_defer
+
+# Find ffmpeg executable
+FFMPEG_PATH = shutil.which("ffmpeg") or "ffmpeg"
+if shutil.which("ffmpeg"):
+    print(f"✅ FFmpeg found at: {FFMPEG_PATH}")
+else:
+    print("⚠️ FFmpeg not found in PATH, will try default 'ffmpeg' command")
 
 # yt-dlp options
 YTDL_OPTIONS = {
@@ -40,6 +48,12 @@ class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.queues = {}
+        # Verify FFmpeg availability on startup
+        if not shutil.which("ffmpeg"):
+            print("❌ WARNING: FFmpeg not found in system PATH!")
+            print("   Music commands will not work without FFmpeg installed.")
+        else:
+            print(f"✅ Music plugin ready with FFmpeg at: {shutil.which('ffmpeg')}")
 
     @staticmethod
     def _is_url(value: str) -> bool:
@@ -116,7 +130,7 @@ class Music(commands.Cog):
             )
 
         try:
-            source = discord.FFmpegPCMAudio(song["url"], **FFMPEG_OPTIONS)
+            source = discord.FFmpegPCMAudio(song["url"], executable=FFMPEG_PATH, **FFMPEG_OPTIONS)
             voice_client.play(source, after=after_play)
             print(f"🎵 Now playing: {song['title']}")
         except Exception as e:
