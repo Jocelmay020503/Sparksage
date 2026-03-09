@@ -22,7 +22,7 @@ YTDL_OPTIONS = {
 
 FFMPEG_OPTIONS = {
     "before_options": "-reconnect 1 -reconnect_streamed 1 -reconnect_delay_max 5",
-    "options": "-vn",
+    "options": "-vn -b:a 128k",
 }
 
 ytdl = yt_dlp.YoutubeDL(YTDL_OPTIONS)
@@ -107,14 +107,21 @@ class Music(commands.Cog):
         music_queue.current = song
         music_queue.is_playing = True
 
-        source = discord.FFmpegPCMAudio(song["url"], **FFMPEG_OPTIONS)
-        voice_client.play(
-            source,
-            after=lambda e: asyncio.run_coroutine_threadsafe(
+        def after_play(error):
+            if error:
+                print(f"❌ Music playback error: {error}")
+            asyncio.run_coroutine_threadsafe(
                 self.play_next(guild_id, voice_client),
                 self.bot.loop
             )
-        )
+
+        try:
+            source = discord.FFmpegPCMAudio(song["url"], **FFMPEG_OPTIONS)
+            voice_client.play(source, after=after_play)
+            print(f"🎵 Now playing: {song['title']}")
+        except Exception as e:
+            print(f"❌ Failed to create audio source: {e}")
+            music_queue.is_playing = False
 
     @app_commands.command(name="play", description="Play music from YouTube")
     @app_commands.describe(query="YouTube link or search query")
@@ -141,6 +148,8 @@ class Music(commands.Cog):
 
         try:
             song = await self.get_youtube_url(query)
+            print(f"🔍 Found song: {song['title']}")
+            print(f"🔗 Stream URL: {song['url'][:100]}...")  # Print first 100 chars
         except Exception as e:
             await interaction.followup.send(
                 "❌ I couldn't find that track. Please try a different YouTube link or search query."
@@ -167,6 +176,11 @@ class Music(commands.Cog):
         await interaction.followup.send(embed=embed)
 
         if not music_queue.is_playing:
+            # Verify voice client is ready
+            if not voice_client.is_connected():
+                await interaction.followup.send("❌ Failed to connect to voice channel.")
+                return
+            print(f"🎤 Voice client connected, starting playback...")
             await self.play_next(guild_id, voice_client)
 
     @app_commands.command(name="stop", description="Stop music and clear the queue")
