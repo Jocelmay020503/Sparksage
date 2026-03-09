@@ -12,7 +12,7 @@ from discord.ext import commands
 from discord import app_commands
 
 import config
-from utils import ask_ai, check_command_permission
+from utils import ask_ai, check_command_permission, safe_defer, safe_ephemeral
 
 # System prompt for code review
 CODE_REVIEW_SYSTEM_PROMPT = """You are a senior code reviewer with expertise across multiple programming languages. 
@@ -66,12 +66,10 @@ class CodeReview(commands.Cog):
         """Review a code snippet and provide detailed feedback."""
         # Check permissions
         if not await check_command_permission(interaction, "review"):
-            await interaction.response.send_message(
-                "❌ You don't have permission to use this command.", ephemeral=True
-            )
+            await safe_ephemeral(interaction, "❌ You don't have permission to use this command.")
             return
         
-        await interaction.response.defer()
+        await safe_defer(interaction)
 
         # Determine language
         if not language:

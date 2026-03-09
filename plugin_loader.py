@@ -12,7 +12,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
-import discord.ext.commands as commands
+from discord.ext import commands
 
 
 @dataclass(slots=True)

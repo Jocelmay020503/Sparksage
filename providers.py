@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from typing import Any
 from openai import OpenAI
 import config
 
@@ -59,6 +60,63 @@ def get_available_providers() -> list[str]:
     return [name for name in FALLBACK_ORDER if name in _clients]
 
 
+def _safe_int(value: Any) -> int:
+    """Convert provider usage values to int safely."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return 0
+
+
+def _estimate_tokens(text: str) -> int:
+    """Estimate tokens using a conservative 4 chars/token heuristic."""
+    if not text:
+        return 0
+    return max(1, (len(text) + 3) // 4)
+
+
+def _estimate_prompt_tokens(messages: list[dict], system_prompt: str) -> int:
+    """Estimate prompt tokens from system prompt and conversation messages."""
+    total_chars = len(system_prompt or "")
+    for message in messages:
+        total_chars += len(str(message.get("role", "")))
+        total_chars += len(str(message.get("content", "")))
+    if total_chars <= 0:
+        return 0
+    return max(1, (total_chars + 3) // 4)
+
+
+def _extract_usage_metrics(response: Any, messages: list[dict], system_prompt: str, output_text: str) -> dict[str, int]:
+    """Extract usage from provider response or fall back to token estimates."""
+    usage = getattr(response, "usage", None)
+    prompt_tokens = 0
+    completion_tokens = 0
+    total_tokens = 0
+
+    if usage is not None:
+        prompt_tokens = _safe_int(getattr(usage, "prompt_tokens", None))
+        completion_tokens = _safe_int(getattr(usage, "completion_tokens", None))
+        total_tokens = _safe_int(getattr(usage, "total_tokens", None))
+
+        if isinstance(usage, dict):
+            prompt_tokens = prompt_tokens or _safe_int(usage.get("prompt_tokens"))
+            completion_tokens = completion_tokens or _safe_int(usage.get("completion_tokens"))
+            total_tokens = total_tokens or _safe_int(usage.get("total_tokens"))
+
+    if prompt_tokens <= 0:
+        prompt_tokens = _estimate_prompt_tokens(messages, system_prompt)
+    if completion_tokens <= 0:
+        completion_tokens = _estimate_tokens(output_text)
+    if total_tokens <= 0:
+        total_tokens = prompt_tokens + completion_tokens
+
+    return {
+        "input_tokens": prompt_tokens,
+        "output_tokens": completion_tokens,
+        "total_tokens": total_tokens,
+    }
+
+
 def test_provider(name: str) -> dict:
     """Test a provider with a minimal API call. Returns {success, latency_ms, error}."""
     provider = config.PROVIDERS.get(name)
@@ -86,8 +144,13 @@ def test_provider(name: str) -> dict:
         return {"success": False, "latency_ms": latency, "error": str(e)}
 
 
-def chat(messages: list[dict], system_prompt: str, preferred_provider: str | None = None) -> tuple[str, str]:
-    """Send messages to AI and return (response_text, provider_name).
+def chat(
+    messages: list[dict],
+    system_prompt: str,
+    preferred_provider: str | None = None,
+    include_usage: bool = False,
+) -> tuple[str, str] | tuple[str, str, dict[str, int]]:
+    """Send messages to AI and return response text/provider (and optional usage).
 
     Tries the primary provider first, then falls back through free providers.
     Raises RuntimeError if all providers fail.
@@ -113,7 +176,10 @@ def chat(messages: list[dict], system_prompt: str, preferred_provider: str | Non
                     *messages,
                 ],
             )
-            text = response.choices[0].message.content
+            text = response.choices[0].message.content or ""
+            usage_metrics = _extract_usage_metrics(response, messages, system_prompt, text)
+            if include_usage:
+                return text, provider_name, usage_metrics
             return text, provider_name
 
         except Exception as e:

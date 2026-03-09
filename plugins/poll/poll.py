@@ -43,7 +43,7 @@ class Poll(commands.Cog):
         embed = discord.Embed(
             title=f"📊 {question}",
             color=discord.Color.blue(),
-            description="React para bumoto!"
+            description="React to vote!"
         )
 
         # Idagdag ang bawat option
@@ -54,7 +54,7 @@ class Poll(commands.Cog):
                 inline=False
             )
 
-        embed.set_footer(text=f"Poll gawa ni {interaction.user.display_name}")
+        embed.set_footer(text=f"Poll by {interaction.user.display_name}")
 
         # Respond with the poll
         await interaction.response.send_message(embed=embed)
@@ -86,7 +86,7 @@ class Poll(commands.Cog):
         try:
             message = await interaction.channel.fetch_message(poll_message_id)
         except:
-            await interaction.response.send_message("❌ Hindi mahanap ang poll!", ephemeral=True)
+            await interaction.response.send_message("❌ Could not find that poll message.", ephemeral=True)
             return
 
         # Kunin ang results

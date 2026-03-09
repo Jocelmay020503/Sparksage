@@ -16,7 +16,7 @@ from discord import app_commands
 import config
 import providers
 import db as database
-from utils import ask_ai, check_command_permission
+from utils import ask_ai, check_command_permission, safe_defer, safe_ephemeral
 
 
 class General(commands.Cog):
@@ -31,12 +31,10 @@ class General(commands.Cog):
         """Ask SparkSage a question and get a response."""
         # Check permissions
         if not await check_command_permission(interaction, "ask"):
-            await interaction.response.send_message(
-                "❌ You don't have permission to use this command.", ephemeral=True
-            )
+            await safe_ephemeral(interaction, "❌ You don't have permission to use this command.")
             return
         
-        await interaction.response.defer()
+        await safe_defer(interaction)
         response, provider_name = await ask_ai(
             interaction.channel_id,
             interaction.user.display_name,
@@ -60,9 +58,7 @@ class General(commands.Cog):
         """Clear the conversation history for the current channel."""
         # Check permissions
         if not await check_command_permission(interaction, "clear"):
-            await interaction.response.send_message(
-                "❌ You don't have permission to use this command.", ephemeral=True
-            )
+            await safe_ephemeral(interaction, "❌ You don't have permission to use this command.")
             return
         
         await database.clear_messages(str(interaction.channel_id))

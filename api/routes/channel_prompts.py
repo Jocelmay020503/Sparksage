@@ -35,10 +35,10 @@ async def get_channel_prompt(
     user: dict = Depends(get_current_user),
 ):
     """Get the system prompt for a specific channel."""
-    prompt = await db.get_channel_prompt(channel_id)
-    if not prompt:
+    prompt_record = await db.get_channel_prompt_record(channel_id)
+    if not prompt_record:
         raise HTTPException(status_code=404, detail="Channel prompt not found")
-    return {"channel_id": channel_id, "system_prompt": prompt}
+    return prompt_record
 
 
 @router.post("")
@@ -47,12 +47,16 @@ async def create_channel_prompt(
     user: dict = Depends(get_current_user),
 ):
     """Set or update a custom system prompt for a channel."""
+    print(f"Creating channel prompt: channel_id={body.channel_id}, guild_id={body.guild_id}")
     await db.set_channel_prompt(
         body.channel_id,
         body.guild_id,
         body.system_prompt,
     )
-    return {"status": "ok", "channel_id": body.channel_id}
+    # Return the full record so dashboard can display it immediately
+    prompt_record = await db.get_channel_prompt_record(body.channel_id)
+    print(f"Saved successfully: {prompt_record}")
+    return {"status": "ok", **prompt_record}
 
 
 @router.put("/{channel_id}")

@@ -6,7 +6,7 @@ from discord import app_commands
 import config
 import providers
 import db as database
-from utils import ask_ai, get_history
+from utils import ask_ai, get_history, check_command_permission, safe_ephemeral
 from plugin_loader import plugin_loader
 
 intents = discord.Intents.default()
@@ -14,7 +14,84 @@ intents.message_content = True
 intents.members = True
 intents.voice_states = True
 
-bot = commands.Bot(command_prefix=config.BOT_PREFIX, intents=intents)
+
+def _resolve_interaction_command_names(interaction: discord.Interaction) -> list[str]:
+    """Return qualified and root command names from an interaction payload."""
+    names: list[str] = []
+
+    def add_name(value: str | None):
+        if not value:
+            return
+        cleaned = " ".join(value.strip().split())
+        if cleaned and cleaned not in names:
+            names.append(cleaned)
+
+    command = interaction.command
+    if command is not None:
+        qualified = getattr(command, "qualified_name", None) or getattr(command, "name", "")
+        add_name(qualified)
+        add_name(qualified.split(" ", 1)[0] if qualified else None)
+
+    # Fallback for cases where interaction.command is not populated.
+    data = getattr(interaction, "data", None)
+    if isinstance(data, dict):
+        root = data.get("name")
+        parts: list[str] = []
+        if isinstance(root, str) and root.strip():
+            parts.append(root.strip())
+
+            options = data.get("options")
+            while isinstance(options, list) and options:
+                first = options[0]
+                if not isinstance(first, dict):
+                    break
+                option_type = first.get("type")
+                if option_type not in (1, 2):
+                    break
+                option_name = first.get("name")
+                if not isinstance(option_name, str) or not option_name.strip():
+                    break
+                parts.append(option_name.strip())
+                options = first.get("options")
+
+        add_name(" ".join(parts))
+        add_name(parts[0] if parts else None)
+
+    return names
+
+
+class SparkSageCommandTree(app_commands.CommandTree):
+    """Application command tree with global role-based permission enforcement."""
+
+    async def interaction_check(self, interaction: discord.Interaction) -> bool:
+        if interaction.type != discord.InteractionType.application_command:
+            return True
+
+        command_names = _resolve_interaction_command_names(interaction)
+        if not command_names:
+            return True
+
+        try:
+            for command_name in command_names:
+                allowed = await check_command_permission(interaction, command_name)
+                if allowed:
+                    continue
+
+                await safe_ephemeral(interaction, "❌ You don't have permission to use this command.")
+                return False
+        except Exception as e:
+            joined_names = " | ".join(command_names)
+            print(f"❌ Permission check failed for '{joined_names}': {e}")
+            await safe_ephemeral(
+                interaction,
+                "❌ Unable to verify command permissions right now. Please try again.",
+            )
+            return False
+
+        return True
+
+
+bot = commands.Bot(command_prefix=config.BOT_PREFIX, intents=intents, tree_cls=SparkSageCommandTree)
 
 
 def get_bot_status() -> dict:
@@ -37,6 +114,10 @@ async def on_ready():
     # Initialize database when bot is ready
     await database.init_db()
     await database.sync_env_to_db()
+    
+    # Reload config from database (to pick up any dashboard changes)
+    all_config = await database.get_all_config()
+    config.reload_from_db(all_config)
 
     # Load built-in cogs
     try:

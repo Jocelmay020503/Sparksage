@@ -12,7 +12,7 @@ from discord.ext import commands
 from discord import app_commands
 
 import config
-from utils import ask_ai, get_history, check_command_permission
+from utils import ask_ai, get_history, check_command_permission, safe_defer, safe_ephemeral
 
 
 class Summarize(commands.Cog):
@@ -29,12 +29,10 @@ class Summarize(commands.Cog):
         """Create a summary of the channel's recent conversation."""
         # Check permissions
         if not await check_command_permission(interaction, "summarize"):
-            await interaction.response.send_message(
-                "❌ You don't have permission to use this command.", ephemeral=True
-            )
+            await safe_ephemeral(interaction, "❌ You don't have permission to use this command.")
             return
         
-        await interaction.response.defer()
+        await safe_defer(interaction)
         history = await get_history(interaction.channel_id)
         if not history:
             await interaction.followup.send("No conversation history to summarize.")

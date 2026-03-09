@@ -14,7 +14,12 @@ from discord import app_commands
 import config
 import providers
 import db as database
-from utils import check_command_permission
+from utils import (
+    check_command_permission,
+    log_cost_usage_event,
+    safe_defer,
+    safe_ephemeral,
+)
 
 
 # Common languages for autocomplete
@@ -87,9 +92,10 @@ class Translate(commands.Cog):
     ):
         """Translate text to a specified language."""
         if not await check_command_permission(interaction, "translate"):
+            await safe_ephemeral(interaction, "❌ You don't have permission to use this command.")
             return
 
-        await interaction.response.defer()
+        await safe_defer(interaction)
 
         try:
             translation = await self._translate_text(interaction, text, language)
@@ -111,14 +117,19 @@ class Translate(commands.Cog):
         target_language: str
     ) -> str:
         """Translate text using AI provider."""
+        guild_id = str(interaction.guild_id) if interaction.guild else "DM"
+        user_id = str(interaction.user.id)
+
         # Detect source language if not provided
         detection_prompt = f"Detect the language of this text and respond with ONLY the language name (e.g., 'English', 'Spanish'):\n\n{text}"
 
         try:
-            source_lang_result, _ = providers.chat(
+            source_lang_result, detection_provider, detection_usage = providers.chat(
                 [{"role": "user", "content": detection_prompt}],
-                "You are a language detection assistant. Respond with ONLY the language name."
+                "You are a language detection assistant. Respond with ONLY the language name.",
+                include_usage=True,
             )
+            await log_cost_usage_event(detection_provider, detection_usage, guild_id, user_id)
             source_lang = source_lang_result.strip()
         except Exception:
             source_lang = "Unknown"
@@ -134,10 +145,12 @@ Provide ONLY the translation, no explanations or additional text."""
         system_prompt = f"You are a professional translator. Translate text accurately while preserving meaning, tone, and formatting. Always respond with ONLY the translated text."
 
         try:
-            translation, provider_name = providers.chat(
+            translation, provider_name, usage = providers.chat(
                 [{"role": "user", "content": translation_prompt}],
-                system_prompt
+                system_prompt,
+                include_usage=True,
             )
+            await log_cost_usage_event(provider_name, usage, guild_id, user_id)
 
             # Format the response with language headers
             result = f"**Original** ({source_lang}):\n```\n{text}\n```\n\n"
@@ -147,9 +160,9 @@ Provide ONLY the translation, no explanations or additional text."""
             # Log translation if enabled
             if config.TRANSLATION_LOGGING_ENABLED:
                 await self._log_translation(
-                    str(interaction.guild_id) if interaction.guild else "DM",
+                    guild_id,
                     str(interaction.channel_id),
-                    str(interaction.user_id),
+                    user_id,
                     source_lang,
                     target_language,
                     provider_name,

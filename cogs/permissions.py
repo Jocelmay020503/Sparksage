@@ -8,6 +8,14 @@ import discord
 import db
 
 
+def _normalize_permission_command(command_name: str) -> str:
+    """Canonical permission command name used across API and bot checks."""
+    normalized = " ".join((command_name or "").strip().split()).lower()
+    while normalized.startswith("/"):
+        normalized = normalized[1:].lstrip()
+    return normalized
+
+
 class Permissions(commands.Cog):
     """Manage command permissions and role-based access control."""
     
@@ -30,19 +38,30 @@ class Permissions(commands.Cog):
 
         guild_id = str(interaction.guild_id)
         role_id = str(role.id)
+        normalized_command = _normalize_permission_command(command)
+        if not normalized_command:
+            await interaction.response.send_message("❌ Command name cannot be empty.", ephemeral=True)
+            return
         
         # Check if command exists
-        bot_commands = [cmd.name for cmd in self.bot.tree.get_commands()]
-        if command not in bot_commands:
+        available_commands = {cmd.name.lower() for cmd in self.bot.tree.get_commands()}
+        available_commands.update(
+            cmd.qualified_name.lower()
+            for cmd in self.bot.tree.walk_commands()
+            if isinstance(cmd, app_commands.Command)
+        )
+
+        if normalized_command not in available_commands:
+            available_display = ", ".join(f"`{c}`" for c in sorted(available_commands))
             await interaction.response.send_message(
-                f"❌ Command `{command}` not found. Available commands: {', '.join(f'`{c}`' for c in bot_commands)}",
+                f"❌ Command `{normalized_command}` not found. Available commands: {available_display}",
                 ephemeral=True
             )
             return
 
-        await db.add_permission(command, guild_id, role_id)
+        await db.add_permission(normalized_command, guild_id, role_id)
         await interaction.response.send_message(
-            f"✅ Role {role.mention} is now required to use `/{command}`",
+            f"✅ Role {role.mention} is now required to use `/{normalized_command}`",
             ephemeral=True
         )
 
@@ -60,16 +79,20 @@ class Permissions(commands.Cog):
 
         guild_id = str(interaction.guild_id)
         role_id = str(role.id)
+        normalized_command = _normalize_permission_command(command)
+        if not normalized_command:
+            await interaction.response.send_message("❌ Command name cannot be empty.", ephemeral=True)
+            return
 
-        deleted = await db.delete_permission(command, guild_id, role_id)
+        deleted = await db.delete_permission(normalized_command, guild_id, role_id)
         if deleted:
             await interaction.response.send_message(
-                f"✅ Role {role.mention} no longer required for `/{command}`",
+                f"✅ Role {role.mention} no longer required for `/{normalized_command}`",
                 ephemeral=True
             )
         else:
             await interaction.response.send_message(
-                f"❌ No permission found for `/{command}` with role {role.mention}",
+                f"❌ No permission found for `/{normalized_command}` with role {role.mention}",
                 ephemeral=True
             )
 

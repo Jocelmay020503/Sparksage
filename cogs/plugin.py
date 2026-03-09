@@ -8,6 +8,7 @@ from discord.ext import commands
 from discord import app_commands
 import db
 from plugin_loader import plugin_loader
+from utils import safe_defer
 
 
 class PluginCog(commands.Cog):
@@ -37,7 +38,7 @@ class PluginCog(commands.Cog):
             )
             return
 
-        await interaction.response.defer(ephemeral=True)
+        await safe_defer(interaction, ephemeral=True)
 
         try:
             plugin_loader.discover_plugins()
@@ -114,7 +115,7 @@ class PluginCog(commands.Cog):
             )
             return
 
-        await interaction.response.defer(ephemeral=True)
+        await safe_defer(interaction, ephemeral=True)
 
         try:
             plugin_loader.bind_bot(self.bot)
@@ -204,7 +205,7 @@ class PluginCog(commands.Cog):
             )
             return
 
-        await interaction.response.defer(ephemeral=True)
+        await safe_defer(interaction, ephemeral=True)
 
         try:
             plugin_loader.bind_bot(self.bot)
@@ -266,7 +267,7 @@ class PluginCog(commands.Cog):
             )
             return
 
-        await interaction.response.defer(ephemeral=True)
+        await safe_defer(interaction, ephemeral=True)
 
         try:
             import shutil

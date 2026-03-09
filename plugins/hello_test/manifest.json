@@ -1,0 +1,8 @@
+{
+  "name": "hello_test",
+  "version": "1.0.0",
+  "author": "Test Author",
+  "description": "Simple test plugin for installation workflow validation.",
+  "cog": "hello_test.py",
+  "requirements": []
+}

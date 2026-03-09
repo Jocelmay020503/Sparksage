@@ -27,7 +27,7 @@ export default function PermissionsPage() {
   async function load() {
     if (!token) return;
     try {
-      const result = await api.getPermissions(token, guildId || undefined);
+      const result = await api.getPermissions(token, guildId.trim() || undefined);
       setPermissions(result.permissions);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Failed to load permissions");
@@ -42,7 +42,13 @@ export default function PermissionsPage() {
 
   async function handleCreate() {
     if (!token) return;
-    if (!guildId.trim() || !commandName.trim() || !roleId.trim()) {
+    const normalizedCommand = commandName
+      .trim()
+      .replace(/^\/+/, "")
+      .replace(/\s+/g, " ")
+      .toLowerCase();
+
+    if (!guildId.trim() || !normalizedCommand || !roleId.trim()) {
       toast.error("Guild ID, command name, and role ID are required");
       return;
     }
@@ -51,10 +57,10 @@ export default function PermissionsPage() {
     try {
       await api.createPermission(token, {
         guild_id: guildId.trim(),
-        command_name: commandName.trim(),
+        command_name: normalizedCommand,
         role_id: roleId.trim(),
       });
-      toast.success(`Permission added for /${commandName}`);
+      toast.success(`Permission added for /${normalizedCommand}`);
       setCommandName("");
       setRoleId("");
       await load();

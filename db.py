@@ -392,22 +392,61 @@ async def increment_faq_usage(faq_id: int):
 # --- Permission helpers ---
 
 
+def _normalize_command_name(command_name: str) -> str:
+    """Canonical command key used for permission storage/lookups."""
+    normalized = " ".join((command_name or "").strip().split()).lower()
+    while normalized.startswith("/"):
+        normalized = normalized[1:].lstrip()
+    return normalized
+
+
+def _command_name_variants(command_name: str) -> list[str]:
+    """Variants to support legacy rows saved before normalization."""
+    raw = (command_name or "").strip()
+    normalized = _normalize_command_name(raw)
+
+    candidates = [
+        normalized,
+        raw,
+        raw.lower(),
+        raw.lstrip("/"),
+        raw.lower().lstrip("/"),
+        f"/{normalized}" if normalized else "",
+    ]
+
+    variants: list[str] = []
+    for value in candidates:
+        cleaned = " ".join(value.split()) if value else ""
+        if cleaned and cleaned not in variants:
+            variants.append(cleaned)
+    return variants
+
+
 async def add_permission(command_name: str, guild_id: str, role_id: str):
     """Add a role permission for a command."""
+    normalized_command = _normalize_command_name(command_name)
+    if not normalized_command:
+        raise ValueError("command_name cannot be empty")
+
     db = await get_db()
     await db.execute(
         "INSERT OR IGNORE INTO command_permissions (command_name, guild_id, role_id) VALUES (?, ?, ?)",
-        (command_name, guild_id, role_id),
+        (normalized_command, guild_id, role_id),
     )
     await db.commit()
 
 
 async def delete_permission(command_name: str, guild_id: str, role_id: str) -> bool:
     """Delete a role permission for a command."""
+    variants = _command_name_variants(command_name)
+    if not variants:
+        return False
+
+    cmd_placeholders = ",".join("?" for _ in variants)
     db = await get_db()
     cursor = await db.execute(
-        "DELETE FROM command_permissions WHERE command_name = ? AND guild_id = ? AND role_id = ?",
-        (command_name, guild_id, role_id),
+        f"DELETE FROM command_permissions WHERE guild_id = ? AND role_id = ? AND command_name IN ({cmd_placeholders})",
+        [guild_id, role_id, *variants],
     )
     await db.commit()
     return cursor.rowcount > 0
@@ -423,34 +462,60 @@ async def list_permissions(guild_id: str | None = None, command_name: str | None
         query += " AND guild_id = ?"
         params.append(guild_id)
     if command_name:
-        query += " AND command_name = ?"
-        params.append(command_name)
+        variants = _command_name_variants(command_name)
+        if not variants:
+            return []
+        cmd_placeholders = ",".join("?" for _ in variants)
+        query += f" AND command_name IN ({cmd_placeholders})"
+        params.extend(variants)
     
     query += " ORDER BY command_name, role_id"
     cursor = await db.execute(query, params)
     rows = await cursor.fetchall()
-    return [dict(row) for row in rows]
+
+    # Normalize output so UI/commands always show canonical names.
+    deduped: dict[tuple[str, str, str], dict] = {}
+    for row in rows:
+        normalized_command = _normalize_command_name(row["command_name"])
+        key = (normalized_command, row["guild_id"], row["role_id"])
+        deduped[key] = {
+            "command_name": normalized_command,
+            "guild_id": row["guild_id"],
+            "role_id": row["role_id"],
+        }
+
+    return list(deduped.values())
 
 
 async def check_permission(command_name: str, guild_id: str, user_role_ids: list[str]) -> bool:
     """Check if a user has permission to use a command. Returns True if no restrictions exist or user has required role."""
+    variants = _command_name_variants(command_name)
+    if not variants:
+        return True
+
+    cmd_placeholders = ",".join("?" for _ in variants)
     db = await get_db()
+
     # First check if any permissions exist for this command in this guild
     cursor = await db.execute(
-        "SELECT COUNT(*) as count FROM command_permissions WHERE command_name = ? AND guild_id = ?",
-        (command_name, guild_id),
+        f"SELECT COUNT(*) as count FROM command_permissions WHERE guild_id = ? AND command_name IN ({cmd_placeholders})",
+        [guild_id, *variants],
     )
     row = await cursor.fetchone()
     
     # If no permissions are set, command is unrestricted
     if row["count"] == 0:
         return True
+
+    normalized_roles = sorted({str(role_id) for role_id in user_role_ids if str(role_id).strip()})
+    if not normalized_roles:
+        return False
     
     # Check if user has any of the required roles
-    placeholders = ",".join("?" * len(user_role_ids))
+    role_placeholders = ",".join("?" for _ in normalized_roles)
     cursor = await db.execute(
-        f"SELECT COUNT(*) as count FROM command_permissions WHERE command_name = ? AND guild_id = ? AND role_id IN ({placeholders})",
-        [command_name, guild_id] + user_role_ids,
+        f"SELECT COUNT(*) as count FROM command_permissions WHERE guild_id = ? AND command_name IN ({cmd_placeholders}) AND role_id IN ({role_placeholders})",
+        [guild_id, *variants, *normalized_roles],
     )
     row = await cursor.fetchone()
     return row["count"] > 0
@@ -644,7 +709,7 @@ async def get_translation_logs(
 
 
 async def get_channel_prompt(channel_id: str) -> str | None:
-    """Get custom system prompt for a specific channel."""
+    """Get custom system prompt text for a specific channel."""
     db = await get_db()
     cursor = await db.execute(
         "SELECT system_prompt FROM channel_prompts WHERE channel_id = ?",
@@ -652,6 +717,17 @@ async def get_channel_prompt(channel_id: str) -> str | None:
     )
     row = await cursor.fetchone()
     return row["system_prompt"] if row else None
+
+
+async def get_channel_prompt_record(channel_id: str) -> dict | None:
+    """Get the full channel prompt record (including guild_id, created_at, updated_at)."""
+    db = await get_db()
+    cursor = await db.execute(
+        "SELECT channel_id, guild_id, system_prompt, created_at, updated_at FROM channel_prompts WHERE channel_id = ?",
+        (channel_id,),
+    )
+    row = await cursor.fetchone()
+    return dict(row) if row else None
 
 
 async def set_channel_prompt(channel_id: str, guild_id: str, system_prompt: str):

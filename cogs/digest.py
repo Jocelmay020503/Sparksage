@@ -15,6 +15,7 @@ import asyncio
 import config
 import providers
 import db as database
+from utils import log_cost_usage_event
 
 
 class Digest(commands.Cog):
@@ -22,17 +23,21 @@ class Digest(commands.Cog):
 
     def __init__(self, bot: commands.Bot):
         self.bot = bot
-        self.daily_digest_task.start()
+        # Task will be started in the on_ready event
+        if config.DIGEST_ENABLED:
+            self.daily_digest_task.start()
 
     def cog_unload(self):
         """Stop the task when cog is unloaded."""
-        self.daily_digest_task.cancel()
+        if self.daily_digest_task.is_running():
+            self.daily_digest_task.cancel()
 
     @tasks.loop(hours=24)
     async def daily_digest_task(self):
         """Generate and post daily digest at the configured time."""
         # Check if digest is enabled
         if not config.DIGEST_ENABLED:
+            print("⚠️ Daily digest is disabled")
             return
 
         channel_id = config.DIGEST_CHANNEL_ID
@@ -45,6 +50,8 @@ class Digest(commands.Cog):
             if not channel:
                 print(f"⚠️ Digest channel {channel_id} not found")
                 return
+
+            print(f"🔄 Generating daily digest for channel #{channel.name}...")
 
             # Generate digest
             digest_content = await self._generate_digest(channel.guild)
@@ -66,18 +73,28 @@ class Digest(commands.Cog):
                 
         except Exception as e:
             print(f"❌ Error generating daily digest: {e}")
+            import traceback
+            traceback.print_exc()
 
     @daily_digest_task.before_loop
     async def before_daily_digest(self):
         """Wait until the configured time before starting the loop."""
         await self.bot.wait_until_ready()
         
+        if not config.DIGEST_ENABLED:
+            print("⚠️ Daily digest is disabled (DIGEST_ENABLED is false)")
+            return
+        
+        if not config.DIGEST_CHANNEL_ID:
+            print("⚠️ DIGEST_CHANNEL_ID not configured, digest will not run")
+            return
+        
         # Parse the target time from config
         target_time = config.DIGEST_TIME  # Format: "HH:MM" (e.g., "09:00")
         
         if not target_time or ":" not in target_time:
-            print("⚠️ Invalid DIGEST_TIME format, using default midnight (00:00)")
-            target_time = "00:00"
+            print("⚠️ Invalid DIGEST_TIME format, using default (09:00)")
+            target_time = "09:00"
         
         try:
             hours, minutes = map(int, target_time.split(":"))
@@ -92,8 +109,12 @@ class Digest(commands.Cog):
             print(f"⏰ Daily digest scheduled for {target_time} UTC (in {wait_seconds/3600:.1f} hours)")
             await asyncio.sleep(wait_seconds)
             
+        except ValueError as e:
+            print(f"⚠️ Error parsing DIGEST_TIME '{target_time}': {e}")
+            print("⏰ Daily digest will run soon (in 1 second)")
+            await asyncio.sleep(1)
         except Exception as e:
-            print(f"⚠️ Error parsing DIGEST_TIME: {e}, starting immediately")
+            print(f"⚠️ Unexpected error in digest scheduler: {e}")
             await asyncio.sleep(1)
 
     async def _generate_digest(self, guild: discord.Guild) -> str:
@@ -180,10 +201,12 @@ Keep it concise (under 500 words) and formatted in markdown.
         # Use AI to summarize
         try:
             system_prompt = "You are SparkSage, creating a daily digest for a Discord community. Be concise, informative, and highlight what matters."
-            response, provider_name = providers.chat(
+            response, provider_name, usage = providers.chat(
                 [{"role": "user", "content": digest_prompt}],
-                system_prompt
+                system_prompt,
+                include_usage=True,
             )
+            await log_cost_usage_event(provider_name, usage, str(guild.id), "system")
             return response
             
         except Exception as e:

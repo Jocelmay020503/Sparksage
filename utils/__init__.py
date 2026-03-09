@@ -6,11 +6,13 @@ Contains common helper functions used across cogs and the main bot module.
 
 from __future__ import annotations
 import time
+import discord
 
 
 import config
 import providers
 import db as database
+from utils.cost_calculator import calculate_cost
 from utils.rate_limiter import rate_limiter
 
 MAX_HISTORY = 20
@@ -20,6 +22,36 @@ async def get_history(channel_id: int) -> list[dict]:
     """Get conversation history for a channel from the database."""
     messages = await database.get_messages(str(channel_id), limit=MAX_HISTORY)
     return [{"role": m["role"], "content": m["content"]} for m in messages]
+
+
+async def log_cost_usage_event(
+    provider_name: str,
+    usage: dict[str, int] | None,
+    guild_id: str | None,
+    user_id: str | None,
+):
+    """Persist cost usage to the database for dashboard reporting."""
+    if not guild_id or not user_id or not usage:
+        return
+
+    input_tokens = int(usage.get("input_tokens", 0))
+    output_tokens = int(usage.get("output_tokens", 0))
+    total_tokens = int(usage.get("total_tokens", input_tokens + output_tokens))
+    cost_usd = calculate_cost(provider_name, input_tokens, output_tokens)
+
+    try:
+        await database.log_cost_usage(
+            provider=provider_name,
+            input_tokens=input_tokens,
+            output_tokens=output_tokens,
+            total_tokens=total_tokens,
+            cost_usd=cost_usd,
+            guild_id=guild_id,
+            user_id=user_id,
+        )
+    except Exception as e:
+        # Cost logging must not block normal bot responses.
+        print(f"⚠️ Failed to log cost usage: {e}")
 
 
 async def ask_ai(
@@ -84,10 +116,11 @@ async def ask_ai(
 
 
     try:
-        response, provider_name = providers.chat(
+        response, provider_name, usage = providers.chat(
             history,
             system_prompt,
             preferred_provider=channel_provider,
+            include_usage=True,
         )
         # Calculate latency
         latency_ms = int((time.time() - start_time) * 1000)
@@ -109,8 +142,12 @@ async def ask_ai(
             channel_id=str(channel_id),
             user_id=user_id,
             provider=provider_name,
+            tokens_used=usage.get("total_tokens"),
             latency_ms=latency_ms,
         )
+
+        # Persist cost usage for cost dashboard metrics.
+        await log_cost_usage_event(provider_name, usage, guild_id, user_id)
 
         return response, provider_name
     except RuntimeError as e:
@@ -132,10 +169,44 @@ async def check_command_permission(interaction, command_name: str) -> bool:
         return True
     
     guild_id = str(interaction.guild_id)
-    user_role_ids = [str(role.id) for role in interaction.user.roles]
-    
-    # Admins always have access
-    if interaction.user.guild_permissions.administrator:
-        return True
-    
+
+    member = interaction.user
+    member_roles = list(getattr(member, "roles", []))
+
+    # Fallback for partial interaction members where roles may be missing.
+    if not member_roles and interaction.guild and getattr(member, "id", None):
+        cached_member = interaction.guild.get_member(member.id)
+        if cached_member is not None:
+            member_roles = list(getattr(cached_member, "roles", []))
+
+    user_role_ids = [str(role.id) for role in member_roles if getattr(role, "id", None) is not None]
+
+    # Command restrictions are strict: users must match configured roles.
     return await database.check_permission(command_name, guild_id, user_role_ids)
+
+
+async def safe_defer(interaction, *, ephemeral: bool = False):
+    """Defer an interaction only if it has not already been acknowledged."""
+    if interaction.response.is_done():
+        return
+    try:
+        await interaction.response.defer(ephemeral=ephemeral)
+    except discord.HTTPException as e:
+        # Another handler/process may have already acknowledged this interaction.
+        if getattr(e, "code", None) == 40060:
+            return
+        raise
+
+
+async def safe_ephemeral(interaction, content: str):
+    """Send an ephemeral response regardless of interaction response state."""
+    if interaction.response.is_done():
+        await interaction.followup.send(content, ephemeral=True)
+        return
+    try:
+        await interaction.response.send_message(content, ephemeral=True)
+    except discord.HTTPException as e:
+        if getattr(e, "code", None) == 40060:
+            await interaction.followup.send(content, ephemeral=True)
+            return
+        raise

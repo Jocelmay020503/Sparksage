@@ -16,6 +16,7 @@ import asyncio
 import config
 import providers
 import db as database
+from utils import log_cost_usage_event
 
 
 class ModerationActionView(ui.View):
@@ -146,9 +147,16 @@ Examples:
 
         try:
             system_prompt = f"You are a content moderation assistant with {sensitivity} sensitivity. Rate messages objectively and fairly. Respond ONLY with valid JSON."
-            response, provider_name = providers.chat(
+            response, provider_name, usage = providers.chat(
                 [{"role": "user", "content": moderation_prompt}],
                 system_prompt,
+                include_usage=True,
+            )
+            await log_cost_usage_event(
+                provider_name,
+                usage,
+                str(message.guild.id),
+                str(message.author.id),
             )
 
             # Parse the JSON response
