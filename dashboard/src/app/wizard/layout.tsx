@@ -1,11 +1,21 @@
 import Link from "next/link";
 import { Zap } from "lucide-react";
+import { redirect } from "next/navigation";
+import { auth } from "@/lib/auth";
 
-export default function WizardLayout({
+export default async function WizardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const session = await auth();
+  const token = (session as { accessToken?: string } | null)?.accessToken;
+
+  // Enforce login at the route level in case middleware is skipped by platform config.
+  if (!session || !token) {
+    redirect("/login?callbackUrl=/wizard");
+  }
+
   return (
     <div className="min-h-screen bg-background">
       <header className="border-b">
