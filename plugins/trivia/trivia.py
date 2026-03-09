@@ -129,6 +129,13 @@ class Trivia(commands.Cog):
 
     @app_commands.command(name="trivia", description="Start an interactive trivia game")
     @app_commands.describe(difficulty="Difficulty level: easy, medium, or hard")
+    @app_commands.choices(
+        difficulty=[
+            app_commands.Choice(name="Easy", value="easy"),
+            app_commands.Choice(name="Medium", value="medium"),
+            app_commands.Choice(name="Hard", value="hard"),
+        ]
+    )
     async def trivia(self, interaction: discord.Interaction, difficulty: str = "medium"):
         difficulties = {
             "easy": "🟢 Easy",

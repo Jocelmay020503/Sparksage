@@ -160,6 +160,42 @@ class PluginLoader:
         for name in to_remove:
             sys.modules.pop(name, None)
 
+    async def _mirror_global_commands_to_connected_guilds(
+        self,
+        bot: commands.Bot,
+        context: str,
+    ) -> None:
+        """Mirror global commands into connected guilds for instant slash-command updates."""
+        if not bot.guilds:
+            return
+
+        try:
+            import discord
+        except Exception as exc:
+            print(f"❌ {context}: unable to import discord for guild sync mirror: {exc}")
+            return
+
+        synced_count = 0
+        for guild in bot.guilds:
+            try:
+                guild_obj = discord.Object(id=guild.id)
+                bot.tree.clear_commands(guild=guild_obj)
+                bot.tree.copy_global_to(guild=guild_obj)
+                guild_synced = await bot.tree.sync(guild=guild_obj)
+                synced_count += 1
+                print(
+                    f"⚡ {context}: mirrored to guild {guild.id} "
+                    f"({len(guild_synced)} command(s))"
+                )
+            except Exception as ge:
+                print(f"❌ {context}: failed to mirror commands to guild {guild.id}: {ge}")
+
+        if synced_count:
+            print(
+                f"ℹ️ {context}: instant guild mirrors complete for "
+                f"{synced_count} connected guild(s)"
+            )
+
     async def load_plugin_cog(
         self,
         bot: commands.Bot,
@@ -251,6 +287,14 @@ class PluginLoader:
                         global_synced = await bot.tree.sync()
                         print(f"✅ Plugin '{resolved_name}' loaded - global sync complete ({len(global_synced)} command(s), scope={scope})")
 
+                        # In pure global mode without DISCORD_GUILD_ID, command propagation can take up to 1 hour.
+                        # Mirror to connected guilds so newly loaded plugin commands appear immediately.
+                        if not config.DISCORD_GUILD_ID:
+                            await self._mirror_global_commands_to_connected_guilds(
+                                bot,
+                                context=f"Plugin '{resolved_name}' load sync",
+                            )
+
                     if not sync_guild and not sync_global:
                         print(f"⚠️ COMMAND_SYNC_SCOPE='{scope}' disables sync. Plugin commands were loaded but not synced.")
                 except Exception as e:
@@ -325,6 +369,13 @@ class PluginLoader:
                     if sync_global:
                         global_synced = await bot.tree.sync()
                         print(f"✅ Plugin '{resolved_name}' unloaded - global sync complete ({len(global_synced)} command(s), scope={scope})")
+
+                        # Mirror current global state to connected guilds so removed plugin commands disappear immediately.
+                        if not config.DISCORD_GUILD_ID:
+                            await self._mirror_global_commands_to_connected_guilds(
+                                bot,
+                                context=f"Plugin '{resolved_name}' unload sync",
+                            )
 
                     if not sync_guild and not sync_global:
                         print(f"⚠️ COMMAND_SYNC_SCOPE='{scope}' disables sync. Plugin commands were unloaded but not synced.")

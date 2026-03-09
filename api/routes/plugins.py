@@ -546,7 +546,10 @@ async def enable_plugin(plugin_name: str, user: dict = Depends(get_current_user)
             if config.DISCORD_GUILD_ID:
                 message = f"✅ {load_msg}! Commands synced instantly - reload Discord to see them."
             else:
-                message = f"✅ {load_msg}! Commands will appear in up to 1 hour (global sync). Set DISCORD_GUILD_ID for instant updates."
+                message = (
+                    f"✅ {load_msg}! Commands were mirrored to connected guilds for instant updates; "
+                    "global propagation to other guilds may still take up to 1 hour."
+                )
         else:
             # Bot running but load failed - still enabled, will retry on next startup
             print(f"⚠️ Warning: Plugin '{manifest.name}' enabled but failed to load: {load_msg}")
@@ -603,7 +606,10 @@ async def disable_plugin(plugin_name: str, user: dict = Depends(get_current_user
                 if config.DISCORD_GUILD_ID:
                     message = f"✅ {unload_msg}! Commands removed instantly - reload Discord to see changes."
                 else:
-                    message = f"✅ {unload_msg}! Commands will be removed in up to 1 hour (global sync). Set DISCORD_GUILD_ID for instant updates."
+                    message = (
+                        f"✅ {unload_msg}! Command removals were mirrored to connected guilds; "
+                        "global propagation to other guilds may still take up to 1 hour."
+                    )
 
     info = await _find_plugin_or_404(resolved_name)
 
