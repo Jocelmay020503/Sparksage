@@ -85,14 +85,23 @@ class General(commands.Cog):
         description="Display all available commands and their descriptions",
     )
     async def help(self, interaction: discord.Interaction):
-        """Display a comprehensive help message with all commands."""
+        """Display a help message with commands based on user permissions."""
+        # Check if user has admin/manage server permissions
+        is_admin = False
+        if interaction.guild and isinstance(interaction.user, discord.Member):
+            is_admin = (
+                interaction.user.guild_permissions.administrator
+                or interaction.user.guild_permissions.manage_guild
+                or interaction.user.guild_permissions.manage_channels
+            )
+
         embed = discord.Embed(
             title="🤖 SparkSage Help Menu",
-            description="A multi-AI Discord bot with powerful features. Here are all available commands:",
+            description="A multi-AI Discord bot with powerful features. Here are your available commands:",
             color=discord.Color.blue()
         )
 
-        # General Commands
+        # General Commands (Always visible)
         embed.add_field(
             name="💬 General Commands",
             value=(
@@ -104,7 +113,7 @@ class General(commands.Cog):
             inline=False
         )
 
-        # AI Features
+        # AI Features (Always visible)
         embed.add_field(
             name="🧠 AI Features",
             value=(
@@ -115,77 +124,90 @@ class General(commands.Cog):
             inline=False
         )
 
-        # Channel Management
-        embed.add_field(
-            name="⚙️ Channel Management",
-            value=(
-                "`/prompt set <prompt>` - Set custom AI prompt for this channel\n"
-                "`/prompt show` - Show current channel prompt\n"
-                "`/prompt clear` - Remove custom prompt (use default)\n"
-                "`/channelprovider set <provider>` - Set AI provider for this channel\n"
-                "`/channelprovider show` - Show current channel provider\n"
-                "`/channelprovider clear` - Use default provider"
-            ),
-            inline=False
-        )
+        # Additional Info for basic users
+        if not is_admin:
+            embed.add_field(
+                name="ℹ️ Additional Information",
+                value=(
+                    "**Mention me**: You can also mention @SparkSage to ask questions!\n"
+                    "**More Features**: Contact your server admin for advanced features like channel prompts, FAQs, and plugins.\n"
+                    "**Support**: For issues, contact your server admin."
+                ),
+                inline=False
+            )
+            embed.set_footer(text="SparkSage - Multi-AI Discord Bot | Basic User View")
+        else:
+            # Admin-only commands
+            # Channel Management
+            embed.add_field(
+                name="⚙️ Channel Management",
+                value=(
+                    "`/prompt set <prompt>` - Set custom AI prompt for this channel\n"
+                    "`/prompt show` - Show current channel prompt\n"
+                    "`/prompt clear` - Remove custom prompt (use default)\n"
+                    "`/channelprovider set <provider>` - Set AI provider for this channel\n"
+                    "`/channelprovider show` - Show current channel provider\n"
+                    "`/channelprovider clear` - Use default provider"
+                ),
+                inline=False
+            )
 
-        # FAQ Management
-        embed.add_field(
-            name="❓ FAQ Management",
-            value=(
-                "`/faq add <question> <answer>` - Add a new FAQ entry\n"
-                "`/faq list` - List all FAQs for this server\n"
-                "`/faq get <question>` - Get answer for a specific FAQ\n"
-                "`/faq delete <faq_id>` - Delete a FAQ entry"
-            ),
-            inline=False
-        )
+            # FAQ Management
+            embed.add_field(
+                name="❓ FAQ Management",
+                value=(
+                    "`/faq add <question> <answer>` - Add a new FAQ entry\n"
+                    "`/faq list` - List all FAQs for this server\n"
+                    "`/faq get <question>` - Get answer for a specific FAQ\n"
+                    "`/faq delete <faq_id>` - Delete a FAQ entry"
+                ),
+                inline=False
+            )
 
-        # Permission System
-        embed.add_field(
-            name="🔒 Permissions",
-            value=(
-                "`/permissions set <command> <roles>` - Restrict command to specific roles\n"
-                "`/permissions remove <command> <role>` - Remove role restriction\n"
-                "`/permissions list` - List all command permissions"
-            ),
-            inline=False
-        )
+            # Permission System
+            embed.add_field(
+                name="🔒 Permissions",
+                value=(
+                    "`/permissions set <command> <roles>` - Restrict command to specific roles\n"
+                    "`/permissions remove <command> <role>` - Remove role restriction\n"
+                    "`/permissions list` - List all command permissions"
+                ),
+                inline=False
+            )
 
-        # Plugin Management
-        embed.add_field(
-            name="🔌 Plugins",
-            value=(
-                "`/plugin list` - List all available plugins\n"
-                "`/plugin enable <name>` - Enable a plugin\n"
-                "`/plugin disable <name>` - Disable a plugin\n"
-                "`/plugin info <name>` - Show plugin details"
-            ),
-            inline=False
-        )
+            # Plugin Management
+            embed.add_field(
+                name="🔌 Plugins",
+                value=(
+                    "`/plugin list` - List all available plugins\n"
+                    "`/plugin enable <name>` - Enable a plugin\n"
+                    "`/plugin disable <name>` - Disable a plugin\n"
+                    "`/plugin info <name>` - Show plugin details"
+                ),
+                inline=False
+            )
 
-        # Moderation (Admin Only)
-        embed.add_field(
-            name="🛡️ Moderation (Admin Only)",
-            value=(
-                "`/digest` - Generate and post daily activity summary\n"
-                "`/moderate <text>` - Check if text violates server rules"
-            ),
-            inline=False
-        )
+            # Moderation
+            embed.add_field(
+                name="🛡️ Moderation",
+                value=(
+                    "`/digest` - Generate and post daily activity summary\n"
+                    "`/moderate <text>` - Check if text violates server rules"
+                ),
+                inline=False
+            )
 
-        # Additional Info
-        embed.add_field(
-            name="ℹ️ Additional Information",
-            value=(
-                "**Mention me**: You can also mention @SparkSage to ask questions!\n"
-                "**Dashboard**: Visit the web dashboard to manage settings, view analytics, and more.\n"
-                "**Support**: For issues, contact your server admin."
-            ),
-            inline=False
-        )
-
-        embed.set_footer(text="SparkSage - Multi-AI Discord Bot | Use commands responsibly")
+            # Additional Info for admins
+            embed.add_field(
+                name="ℹ️ Additional Information",
+                value=(
+                    "**Mention me**: You can also mention @SparkSage to ask questions!\n"
+                    "**Dashboard**: Visit the web dashboard to manage settings, view analytics, and more.\n"
+                    "**Admin View**: You're seeing all available commands."
+                ),
+                inline=False
+            )
+            embed.set_footer(text="SparkSage - Multi-AI Discord Bot | Admin View")
         
         await interaction.response.send_message(embed=embed, ephemeral=True)
 
