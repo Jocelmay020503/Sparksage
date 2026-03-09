@@ -224,10 +224,14 @@ class PluginLoader:
             self.loaded_modules[resolved_name] = module_name
 
             if sync_commands:
-                # Sync to guild first for instant updates, then global
+                # Sync according to configured scope to avoid duplicate slash commands.
                 try:
                     import config
-                    if config.DISCORD_GUILD_ID:
+                    scope = (getattr(config, "COMMAND_SYNC_SCOPE", "global") or "global").lower()
+                    sync_guild = scope in {"guild", "both"}
+                    sync_global = scope in {"global", "both"}
+
+                    if sync_guild and config.DISCORD_GUILD_ID:
                         try:
                             import discord
                             guild_id = int(config.DISCORD_GUILD_ID)
@@ -235,17 +239,20 @@ class PluginLoader:
                             # Copy global commands to guild before syncing (includes new plugin commands)
                             bot.tree.copy_global_to(guild=guild_obj)
                             guild_synced = await bot.tree.sync(guild=guild_obj)
-                            print(f"✅ Plugin '{resolved_name}' loaded - Commands synced to guild {guild_id} (INSTANT)")
+                            print(f"✅ Plugin '{resolved_name}' loaded - guild sync complete ({len(guild_synced)} command(s), scope={scope})")
                         except ValueError as ve:
                             print(f"❌ Invalid DISCORD_GUILD_ID: {config.DISCORD_GUILD_ID} - {ve}")
                         except Exception as ge:
                             print(f"❌ Failed to sync to guild: {ge}")
-                    else:
-                        print(f"ℹ️  DISCORD_GUILD_ID not set - guild sync skipped. Commands will appear after global sync (up to 1 hour)")
-                    
-                    # Also sync globally (takes up to 1 hour to propagate)
-                    global_synced = await bot.tree.sync()
-                    print(f"✅ Global sync completed - {len(global_synced)} total command(s)")
+                    elif sync_guild:
+                        print("ℹ️  COMMAND_SYNC_SCOPE includes guild, but DISCORD_GUILD_ID is not set.")
+
+                    if sync_global:
+                        global_synced = await bot.tree.sync()
+                        print(f"✅ Plugin '{resolved_name}' loaded - global sync complete ({len(global_synced)} command(s), scope={scope})")
+
+                    if not sync_guild and not sync_global:
+                        print(f"⚠️ COMMAND_SYNC_SCOPE='{scope}' disables sync. Plugin commands were loaded but not synced.")
                 except Exception as e:
                     print(f"❌ Unexpected error during sync: {e}")
 
@@ -292,10 +299,14 @@ class PluginLoader:
             self.loaded_modules.pop(resolved_name, None)
 
             if sync_commands:
-                # Sync to guild first for instant removal, then global
+                # Sync according to configured scope to avoid duplicate slash commands.
                 try:
                     import config
-                    if config.DISCORD_GUILD_ID:
+                    scope = (getattr(config, "COMMAND_SYNC_SCOPE", "global") or "global").lower()
+                    sync_guild = scope in {"guild", "both"}
+                    sync_global = scope in {"global", "both"}
+
+                    if sync_guild and config.DISCORD_GUILD_ID:
                         try:
                             import discord
                             guild_id = int(config.DISCORD_GUILD_ID)
@@ -303,17 +314,20 @@ class PluginLoader:
                             # DON'T copy_global_to here - we want to remove commands, not add them back
                             # Just sync the current tree state (which has commands removed)
                             guild_synced = await bot.tree.sync(guild=guild_obj)
-                            print(f"✅ Plugin '{resolved_name}' unloaded - Commands removed from guild {guild_id} (INSTANT)")
+                            print(f"✅ Plugin '{resolved_name}' unloaded - guild sync complete ({len(guild_synced)} command(s), scope={scope})")
                         except ValueError as ve:
                             print(f"❌ Invalid DISCORD_GUILD_ID: {config.DISCORD_GUILD_ID} - {ve}")
                         except Exception as ge:
                             print(f"❌ Failed to sync to guild: {ge}")
-                    else:
-                        print(f"ℹ️  DISCORD_GUILD_ID not set - guild sync skipped. Commands will be removed after global sync (up to 1 hour)")
-                    
-                    # Also sync globally (takes up to 1 hour to propagate)
-                    global_synced = await bot.tree.sync()
-                    print(f"✅ Global sync completed - {len(global_synced)} total command(s)")
+                    elif sync_guild:
+                        print("ℹ️  COMMAND_SYNC_SCOPE includes guild, but DISCORD_GUILD_ID is not set.")
+
+                    if sync_global:
+                        global_synced = await bot.tree.sync()
+                        print(f"✅ Plugin '{resolved_name}' unloaded - global sync complete ({len(global_synced)} command(s), scope={scope})")
+
+                    if not sync_guild and not sync_global:
+                        print(f"⚠️ COMMAND_SYNC_SCOPE='{scope}' disables sync. Plugin commands were unloaded but not synced.")
                 except Exception as e:
                     print(f"❌ Unexpected error during sync: {e}")
 

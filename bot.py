@@ -170,22 +170,42 @@ async def on_ready():
     print(f"Fallback chain: {' -> '.join(available)}")
 
     try:
-        # Sync to guild first for instant command updates during development
-        if config.DISCORD_GUILD_ID:
-            try:
-                guild_id = int(config.DISCORD_GUILD_ID)
-                guild_obj = discord.Object(id=guild_id)
-                bot.tree.copy_global_to(guild=guild_obj)
-                guild_synced = await bot.tree.sync(guild=guild_obj)
-                print(f"✅ Synced {len(guild_synced)} command(s) to guild {guild_id} (instant)")
-            except ValueError as ve:
-                print(f"❌ Invalid DISCORD_GUILD_ID: {config.DISCORD_GUILD_ID} - Must be a valid integer ID")
-            except Exception as ge:
-                print(f"❌ Failed to sync to guild {config.DISCORD_GUILD_ID}: {ge}")
-        
-        # Also sync globally (takes up to 1 hour to propagate)
-        synced = await bot.tree.sync()
-        print(f"✅ Synced {len(synced)} command(s) globally")
+        scope = (getattr(config, "COMMAND_SYNC_SCOPE", "global") or "global").lower()
+        sync_guild = scope in {"guild", "both"}
+        sync_global = scope in {"global", "both"}
+
+        if sync_guild:
+            if config.DISCORD_GUILD_ID:
+                try:
+                    guild_id = int(config.DISCORD_GUILD_ID)
+                    guild_obj = discord.Object(id=guild_id)
+                    bot.tree.copy_global_to(guild=guild_obj)
+                    guild_synced = await bot.tree.sync(guild=guild_obj)
+                    print(f"✅ Synced {len(guild_synced)} command(s) to guild {guild_id} (scope={scope})")
+                except ValueError:
+                    print(f"❌ Invalid DISCORD_GUILD_ID: {config.DISCORD_GUILD_ID} - must be an integer")
+                except Exception as ge:
+                    print(f"❌ Failed to sync to guild {config.DISCORD_GUILD_ID}: {ge}")
+            else:
+                print("ℹ️ COMMAND_SYNC_SCOPE includes guild, but DISCORD_GUILD_ID is not set.")
+
+        if sync_global:
+            synced = await bot.tree.sync()
+            print(f"✅ Synced {len(synced)} command(s) globally (scope={scope})")
+
+            # Prevent duplicates when previously using guild sync by clearing guild-scoped copies.
+            if scope == "global" and config.DISCORD_GUILD_ID:
+                try:
+                    guild_id = int(config.DISCORD_GUILD_ID)
+                    guild_obj = discord.Object(id=guild_id)
+                    bot.tree.clear_commands(guild=guild_obj)
+                    cleared = await bot.tree.sync(guild=guild_obj)
+                    print(f"🧹 Cleared guild-only command copies for guild {guild_id} (remaining guild commands: {len(cleared)})")
+                except Exception as ce:
+                    print(f"⚠️ Failed to clear guild command copies: {ce}")
+
+        if not sync_guild and not sync_global:
+            print(f"⚠️ COMMAND_SYNC_SCOPE='{scope}' disables both guild and global sync. No command sync performed.")
     except Exception as e:
         print(f"❌ Failed to sync commands: {e}")
 

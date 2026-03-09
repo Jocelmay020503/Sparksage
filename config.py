@@ -8,6 +8,9 @@ load_dotenv()
 # Discord
 DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
 DISCORD_GUILD_ID = os.getenv("DISCORD_GUILD_ID")  # Optional: for instant command sync during development
+COMMAND_SYNC_SCOPE = os.getenv("COMMAND_SYNC_SCOPE", "global").strip().lower()
+if COMMAND_SYNC_SCOPE not in {"global", "guild", "both"}:
+    COMMAND_SYNC_SCOPE = "global"
 
 # Provider selection
 AI_PROVIDER = os.getenv("AI_PROVIDER", "gemini").lower()
@@ -173,6 +176,7 @@ def reload_from_db(db_config: dict[str, str]):
         "ADMIN_PASSWORD": str,
         "DISCORD_TOKEN": str,
         "DISCORD_GUILD_ID": str,
+        "COMMAND_SYNC_SCOPE": lambda v: v.strip().lower(),
         "DISCORD_CLIENT_ID": str,
         "DISCORD_CLIENT_SECRET": str,
         "JWT_SECRET": str,
@@ -181,5 +185,8 @@ def reload_from_db(db_config: dict[str, str]):
     for key, converter in mapping.items():
         if key in db_config and db_config[key]:
             setattr(config, key, converter(db_config[key]))
+
+    if config.COMMAND_SYNC_SCOPE not in {"global", "guild", "both"}:
+        config.COMMAND_SYNC_SCOPE = "global"
 
     config.PROVIDERS = config._build_providers()
