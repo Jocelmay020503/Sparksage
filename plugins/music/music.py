@@ -4,14 +4,31 @@ from discord import app_commands
 import yt_dlp
 import asyncio
 import shutil
+import os
+import glob
 from utils import safe_defer
 
-# Find ffmpeg executable
-FFMPEG_PATH = shutil.which("ffmpeg") or "ffmpeg"
-if shutil.which("ffmpeg"):
-    print(f"✅ FFmpeg found at: {FFMPEG_PATH}")
-else:
-    print("⚠️ FFmpeg not found in PATH, will try default 'ffmpeg' command")
+# Find ffmpeg executable - check multiple locations for Railway/Nix
+def find_ffmpeg():
+    # Check PATH first
+    if shutil.which("ffmpeg"):
+        return shutil.which("ffmpeg")
+    
+    # Check common nix store locations (Railway uses nixpacks)
+    nix_paths = glob.glob("/nix/store/*/bin/ffmpeg")
+    if nix_paths:
+        return nix_paths[0]
+    
+    # Check common system locations
+    for path in ["/usr/bin/ffmpeg", "/usr/local/bin/ffmpeg", "/opt/bin/ffmpeg"]:
+        if os.path.exists(path):
+            return path
+    
+    return "ffmpeg"  # Fallback to default
+
+FFMPEG_PATH = find_ffmpeg()
+print(f"🔍 FFmpeg search result: {FFMPEG_PATH}")
+print(f"🔍 FFmpeg exists: {os.path.exists(FFMPEG_PATH) if FFMPEG_PATH != 'ffmpeg' else 'unknown (using default)'}")
 
 # yt-dlp options
 YTDL_OPTIONS = {
@@ -48,12 +65,7 @@ class Music(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.queues = {}
-        # Verify FFmpeg availability on startup
-        if not shutil.which("ffmpeg"):
-            print("❌ WARNING: FFmpeg not found in system PATH!")
-            print("   Music commands will not work without FFmpeg installed.")
-        else:
-            print(f"✅ Music plugin ready with FFmpeg at: {shutil.which('ffmpeg')}")
+        print(f"✅ Music plugin initialized with FFmpeg: {FFMPEG_PATH}")
 
     @staticmethod
     def _is_url(value: str) -> bool:
