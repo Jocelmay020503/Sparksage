@@ -13,6 +13,11 @@ YTDL_OPTIONS = {
     "no_warnings": True,
     "extract_flat": False,
     "source_address": "0.0.0.0",
+    "default_search": "ytsearch",
+    "nocheckcertificate": True,
+    "ignoreerrors": False,
+    "logtostderr": False,
+    "no_color": True,
 }
 
 FFMPEG_OPTIONS = {
